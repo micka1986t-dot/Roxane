@@ -151,7 +151,12 @@ function viewStory(s){
       ${r.length?r.map(v=>`<div class="review"><div class="who"><b>${esc(v.who)}${v.mine?" (toi)":""}</b><span class="stars">${starStr(v.stars)}</span></div><div>${esc(v.body)}</div><div class="row muted" style="font-size:12px"><span>${fmtDate(v.created_at)}</span>${v.mine?"":`<button class="report" data-report-type="review" data-report-id="${v.id}">Signaler</button>`}</div></div>`).join(""):`<p class="muted">Personne n'a encore donné son avis. Le premier fait toujours plaisir à l'auteur.</p>`}
     </div>
     <div class="panel stack">
-      ${s.mine?`<h3>C'est ton histoire</h3><p class="muted" style="margin:0">Les avis de tes lecteurs apparaissent à gauche. Pense à annoncer la suite sur ton blog depuis Mon espace.</p>`:
+      ${s.mine?(s.type==="chapitres"?`<h3>Ajouter le chapitre ${s.chapters.length+1}</h3>
+      <input type="text" id="ncTitle" maxlength="80" placeholder="Titre du chapitre">
+      <textarea id="ncBody" rows="8" placeholder="La suite de ton histoire… (laisse une ligne vide entre deux paragraphes)"></textarea>
+      <div id="ncErr" class="note" hidden></div>
+      <button class="btn primary" id="ncSend">Publier ce chapitre</button>
+      <p class="muted" style="font-size:12px;margin:0">Pense à l'annoncer sur ton blog depuis Mon espace.</p>`:`<h3>C'est ton histoire</h3><p class="muted" style="margin:0">Les avis de tes lecteurs apparaissent à gauche.</p>`):
       !state.me?`<h3>Donne ton avis</h3><p class="muted" style="margin:0">Il faut un compte pour noter une histoire. Ton avis peut quand même rester anonyme.</p><button class="btn primary" id="loginToReview">Se connecter ou créer un compte</button>`:
       `<h3>${myReview?"Modifier mon avis":"Donne ton avis"}</h3>
       <div class="star-input" id="starIn" role="radiogroup" aria-label="Note sur 5">${[1,2,3,4,5].map(n=>`<button data-s="${n}" class="${n<=newStars?"on":""}" aria-label="${n} étoile${n>1?"s":""}">★</button>`).join("")}</div>
@@ -177,6 +182,13 @@ function bindStory(s){
   $("#delStory")?.addEventListener("click",()=>modal(`<h3>Supprimer « ${esc(s.title)} » ?</h3><p style="margin:0">L'histoire, ses chapitres et ses avis seront effacés pour toujours.</p>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Annuler</button><button class="btn primary" id="delOk">Supprimer</button></div>`,
     m=>{$("#delOk",m).onclick=async()=>{try{await api("DELETE","/api/stories/"+s.id);closeModal();toast("Histoire supprimée");go("espace")}catch(e){closeModal();toast(e.message)}}}));
+  $("#ncSend")?.addEventListener("click",async()=>{
+    const t=$("#ncTitle").value.trim(),b=$("#ncBody").value.trim(),err=$("#ncErr");
+    if(b.split(/\s+/).length<20)return showErr(err,"Le chapitre doit faire au moins 20 mots.");
+    if(personal(t+" "+b))return showErr(err,"Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le pour rester anonyme.");
+    try{const r=await api("POST",`/api/stories/${s.id}/chapters`,{title:t,body:b});reading.ch=r.position;toast("Chapitre publié !");lastRoute="";await render();$("#lecture")?.scrollIntoView()}
+    catch(e){showErr(err,e.message)}
+  });
   $("#starIn")?.addEventListener("click",e=>{const b=e.target.closest("[data-s]");if(!b)return;newStars=+b.dataset.s;[...$("#starIn").children].forEach((x,i)=>x.classList.toggle("on",i<newStars))});
   $("#revSend")?.addEventListener("click",async()=>{
     const t=$("#revTxt").value.trim(),err=$("#revErr");

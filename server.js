@@ -207,6 +207,18 @@ app.post("/api/stories", needUser, writeLimit, wrap(async (req, res) => {
     res.json({ id: s.rows[0].id });
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
 }));
+app.post("/api/stories/:id/chapters", needUser, writeLimit, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10), title = str(req.body.title, 80), body = str(req.body.body, 60000);
+  const s = await q("SELECT kind FROM stories WHERE id=$1 AND author_id=$2", [id, req.user.id]);
+  if (!s.rows[0]) throw new HttpError(404, "Histoire introuvable.");
+  if (s.rows[0].kind !== "chapitres") bad("Une histoire courte n'a pas de chapitres.");
+  if (body.split(/\s+/).length < 20) bad("Le chapitre doit faire au moins 20 mots.");
+  if (personal(title + " " + body)) bad("Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le pour rester anonyme.");
+  const n = await q("SELECT coalesce(max(position),-1)+1 AS n FROM chapters WHERE story_id=$1", [id]);
+  await q("INSERT INTO chapters (story_id,position,title,body) VALUES ($1,$2,$3,$4)", [id, n.rows[0].n, title || "Chapitre " + (n.rows[0].n + 1), body]);
+  await q("UPDATE stories SET updated_at=now() WHERE id=$1", [id]);
+  res.json({ position: n.rows[0].n });
+}));
 app.delete("/api/stories/:id", needUser, wrap(async (req, res) => {
   const r = await q("DELETE FROM stories WHERE id=$1 AND author_id=$2", [parseInt(req.params.id, 10), req.user.id]);
   if (!r.rowCount) throw new HttpError(404, "Histoire introuvable.");
