@@ -1,0 +1,55 @@
+// Test de bout en bout de l'API. Usage : DATABASE_URL=... npm test  (base jetable conseillée)
+const assert = require("assert");
+process.env.ADMIN_PSEUDOS = "ModoTest";
+const { app, init, pool } = require("../server.js");
+
+(async () => {
+  await init();
+  const srv = app.listen(0); const base = `http://localhost:${srv.address().port}`;
+  const jar = {};
+  const call = async (who, method, url, body) => {
+    const r = await fetch(base + url, { method, headers: { "Content-Type": "application/json", Cookie: jar[who] || "" }, body: body && JSON.stringify(body) });
+    const c = r.headers.get("set-cookie"); if (c) jar[who] = c.split(";")[0];
+    return { status: r.status, body: await r.json().catch(() => ({})) };
+  };
+  const y = new Date().getFullYear(), tag = Date.now().toString(36);
+  const kid = "Kid_" + tag, adult = "Adulte_" + tag;
+  let r;
+  r = await call("kid", "POST", "/api/signup", { pseudo: kid, password: "motdepasse1", birthYear: y - 13 });
+  assert.equal(r.status, 400, "moins de 15 ans sans accord parental refusé");
+  r = await call("kid", "POST", "/api/signup", { pseudo: kid, password: "motdepasse1", birthYear: y - 13, parentOk: true });
+  assert.equal(r.status, 200); assert.equal(r.body.me.adult, false);
+  r = await call("kid", "GET", "/api/stories?section=adulte"); assert.equal(r.status, 403, "mineur bloqué en Adulte");
+  r = await call("anon", "POST", "/api/signup", { pseudo: kid.toUpperCase(), password: "motdepasse1", birthYear: y - 30 });
+  assert.equal(r.status, 400, "pseudo unique sans tenir compte des majuscules");
+  r = await call("ad", "POST", "/api/signup", { pseudo: adult, password: "motdepasse2", birthYear: y - 30 });
+  assert.equal(r.body.me.adult, true);
+  const body = "Il était une fois une histoire de test qui contient largement plus de vingt mots pour passer la règle minimale de longueur imposée par le serveur.";
+  r = await call("kid", "POST", "/api/stories", { title: "T", genre: "Humour", type: "courte", section: "adulte", chapters: [{ body }] });
+  assert.equal(r.status, 400, "mineur ne publie pas en Adulte");
+  r = await call("kid", "POST", "/api/stories", { title: "Contact", genre: "Humour", type: "courte", chapters: [{ body: body + " écris-moi à toto@mail.fr" }] });
+  assert.equal(r.status, 400, "e-mail bloqué");
+  r = await call("kid", "POST", "/api/stories", { title: "Mon test", genre: "Humour", type: "courte", chapters: [{ body }] });
+  assert.equal(r.status, 200); const sid = r.body.id;
+  r = await call("kid", "POST", `/api/stories/${sid}/reviews`, { stars: 5, body: "Je m'aime bien" }); assert.equal(r.status, 400, "pas d'avis sur sa propre histoire");
+  r = await call("ad", "POST", `/api/stories/${sid}/reviews`, { stars: 4, body: "Sympa et drôle", anonymous: true }); assert.equal(r.status, 200);
+  r = await call("anon", "GET", `/api/stories/${sid}`); assert.equal(r.body.story.reviews[0].who, "Anonyme"); assert.equal(r.body.story.avg, 4);
+  r = await call("ad", "POST", `/api/authors/${kid}/follow`); assert.equal(r.body.following, true);
+  r = await call("kid", "POST", "/api/posts", { body: "La suite arrive dimanche !" }); assert.equal(r.status, 200);
+  r = await call("ad", "GET", "/api/space"); assert.equal(r.body.feed[0].body, "La suite arrive dimanche !");
+  r = await call("ad", "GET", `/api/authors/${kid}`); assert.equal(r.body.author.followers, 1);
+  r = await call("anon", "POST", "/api/reports", { targetType: "story", targetId: sid, reason: "Plagiat" }); assert.equal(r.status, 200);
+  r = await call("ad", "GET", "/api/admin/reports"); assert.equal(r.status, 403, "pas admin");
+  r = await call("modo", "POST", "/api/signup", { pseudo: "ModoTest", password: "motdepasse3", birthYear: y - 40 });
+  if (r.status !== 200) r = await call("modo", "POST", "/api/login", { pseudo: "ModoTest", password: "motdepasse3" });
+  r = await call("modo", "GET", "/api/admin/reports"); const rep = r.body.reports.find(x => x.target_id === sid); assert.ok(rep);
+  r = await call("modo", "POST", `/api/admin/reports/${rep.id}`, { action: "hide" }); assert.equal(r.status, 200);
+  r = await call("anon", "GET", `/api/stories/${sid}`); assert.equal(r.status, 404, "histoire masquée");
+  r = await call("kid", "POST", "/api/logout"); jar.kid = "";
+  r = await call("kid", "POST", "/api/login", { pseudo: kid, password: "mauvais" }); assert.equal(r.status, 400);
+  r = await call("kid", "POST", "/api/login", { pseudo: kid, password: "motdepasse1" }); assert.equal(r.status, 200);
+  r = await call("kid", "DELETE", "/api/me"); assert.equal(r.status, 200);
+  r = await call("ad", "DELETE", "/api/me");
+  console.log("Tous les tests passent ✓");
+  srv.close(); await pool.end();
+})().catch(e => { console.error("ÉCHEC :", e.message); process.exit(1); });
