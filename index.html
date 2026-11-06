@@ -3,11 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
-</head>
-<body>
 <title>Plume Libre</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#1D1A33">
+<meta name="description" content="Écris et lis des histoires, sous pseudo, gratuitement.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Plume Libre">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px)}</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&family=Caveat:wght@600&family=Cinzel:wght@600&family=Pacifico&family=Special+Elite&family=Bungee&family=Lora:ital@1&display=swap">
@@ -181,19 +187,74 @@ footer .wrap{padding-block:20px;display:flex;flex-wrap:wrap;gap:8px 20px;justify
   .hero,.cols,.studio{grid-template-columns:1fr}
   .story-head{grid-template-columns:130px 1fr;gap:18px}
   .designer{position:static}
-  nav.main{margin-left:0;width:100%;flex-wrap:nowrap;overflow-x:auto}
-  nav.main a{white-space:nowrap}
-  header.top{position:static}
+}
+.tabbar{display:none}
+.demo-band .short{display:none}
+/* ---------- Version mobile : barre d'onglets en bas, en-tête compact ---------- */
+@media (max-width:760px){
+  body{font-size:15px}
+  nav.main{display:none}
+  header.top .wrap{flex-wrap:nowrap;justify-content:space-between;padding-block:8px}
+  .logo{font-size:21px;min-width:0}
+  .logo span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .seg button{padding:6px 11px;font-size:14px}
+  .demo-band .long{display:none}.demo-band .short{display:inline}
+  .demo-band{font-size:12px;text-align:center}
+  .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--surface);border-top:1px solid var(--line);
+    padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px));justify-content:space-around;align-items:flex-end}
+  .tabbar a{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:var(--muted);font-size:11px;font-weight:600;padding:4px 0;min-width:0}
+  .tabbar a svg{width:24px;height:24px}
+  .tabbar a.on{color:var(--accent)}
+  .tabbar a.write svg{width:46px;height:46px;padding:11px;border-radius:50%;background:var(--accent);color:var(--accent-ink);margin-top:-22px;box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 45%,transparent)}
+  .tabbar a.write.on{color:var(--accent)}
+  main{padding-block:18px calc(96px + env(safe-area-inset-bottom,0px))}
+  footer{display:none}
+  .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  .modal{align-items:end;padding:0}
+  .modal .box{border-radius:18px 18px 0 0;max-width:none;padding:22px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px))}
+  /* Accueil */
+  .hero{margin-bottom:18px;gap:0}
+  .hero-shelf{display:none}
+  .hero h1{font-size:32px}
+  .hero p{font-size:15px;margin:10px 0 14px}
+  .hero .row{flex-wrap:nowrap}
+  .hero .row .btn{flex:1;justify-content:center;white-space:nowrap;padding:10px 12px;font-size:14px}
+  .chips{flex-wrap:nowrap;overflow-x:auto;margin:10px calc(-1*max(16px,env(safe-area-inset-left,0px))) 14px;padding:0 max(16px,env(safe-area-inset-left,0px)) 4px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;flex:none}
+  .toolbar{padding-top:14px}
+  .toolbar>.row{width:100%;flex-wrap:nowrap}
+  .toolbar input[type=search]{flex:1;min-width:0}
+  .toolbar select{flex:none}
+  #sort{width:100%}
+  /* Lecture */
+  .reader{margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));border-radius:0;border-inline:0;padding:26px max(18px,env(safe-area-inset-left,0px))}
+  .reader article{font-size:17px;line-height:1.7}
+  .reader .nav{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--surface);padding-top:10px}
+  .reader .nav .btn{flex:1;justify-content:center}
+  .panel{padding:16px}
+  .star-input button{font-size:34px}
+  /* Écriture : couverture d'abord, en ligne */
+  .studio{gap:20px}
+  .designer .cover{width:150px}
+  .row>.btn.primary#publish{flex:1;justify-content:center}
+  input[type=text],input[type=search],select,textarea{font-size:16px}
+  .author-head{gap:14px}
+  .author-head .avatar{width:64px;height:64px;font-size:26px}
+  .stats{gap:16px}
 }
 @media (max-width:480px){
-  .story-head{grid-template-columns:1fr}
-  .story-head .cover{width:150px}
+  .story-head{grid-template-columns:110px 1fr;gap:14px}
+  .story-head .info h1{font-size:26px}
+  .story-head .info>p{grid-column:1/-1}
   .two{grid-template-columns:1fr}
   .hero-shelf .cover{width:90px}.hero-shelf .cover:nth-child(2){width:105px}
   .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 14px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+</head>
+<body>
 
 <header class="top">
   <div class="wrap">
@@ -214,10 +275,12 @@ footer .wrap{padding-block:20px;display:flex;flex-wrap:wrap;gap:8px 20px;justify
     </nav>
   </div>
 </header>
-<div class="demo-band"><div class="wrap">Prototype de démonstration : les histoires sont des exemples et ce que tu ajoutes reste seulement sur cet appareil.</div></div>
+<div class="demo-band"><div class="wrap"><span class="long">Prototype de démonstration : les histoires sont des exemples et ce que tu ajoutes reste seulement sur cet appareil.</span><span class="short">Prototype · tes ajouts restent sur ce téléphone</span></div></div>
 <main class="wrap" id="app"></main>
 <footer><div class="wrap"><span>Ici, tout le monde écrit sous pseudo. Pas de vrai nom, pas d'adresse, pas de numéro.</span><span>Prototype pour Roxane · novembre 2026</span></div></footer>
 <div id="layer"></div>
+<nav class="tabbar" id="tabBar" aria-label="Navigation"><a href="#explorer" data-r="explorer" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6.5A2.5 2.5 0 0 0 4 20.5 2.5 2.5 0 0 0 6.5 23H19v-5"/></svg><span>Explorer</span></a><a href="#espace" data-r="espace" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Mon espace</span></a><a href="#ecrire" data-r="ecrire" class="write"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Écrire</span></a><a href="#premium" data-r="premium" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span>Premium</span></a><a href="#nom" data-r="nom" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg><span>Le nom</span></a></nav>
+<script>if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
 <script>
 (function(){
@@ -768,7 +831,7 @@ function render(){
   const[r,arg]=route(),app=$("#app");
   const views={explorer:[viewExplorer,bindExplorer],histoire:[viewStory,bindStory],auteur:[viewAuthor,bindAuthor],ecrire:[viewWrite,bindWrite],espace:[viewSpace,bindSpace],premium:[viewPremium,bindPremium],nom:[viewName,bindName]};
   const[v,b]=views[r];app.innerHTML=v(arg);b(arg);bindReports();
-  document.querySelectorAll("#mainNav a").forEach(a=>a.classList.toggle("on",a.dataset.r===r));
+  document.querySelectorAll("#mainNav a,#tabBar a").forEach(a=>a.classList.toggle("on",a.dataset.r===r));
   const key=r+(arg||"");if(key!==lastRoute){window.scrollTo(0,0);lastRoute=key}
 }
 window.addEventListener("hashchange",render);
