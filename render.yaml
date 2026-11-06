@@ -1,4 +1,5 @@
 # Plume Libre sur Render : un service web Node + une base Postgres.
+# ADMIN_PSEUDOS (pseudos modérateurs) se règle à part, dans l'onglet Environment du service.
 services:
   - type: web
     name: plume-libre
@@ -13,8 +14,6 @@ services:
         value: production
       - key: SESSION_SECRET
         generateValue: true
-      - key: ADMIN_PSEUDOS
-        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: plume-libre-db
