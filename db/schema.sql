@@ -76,3 +76,21 @@ CREATE TABLE IF NOT EXISTS reports (
   status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','done')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- v0.3 : récupération de compte, charte, validation des comptes adultes, notifications
+ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS adult_status TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE chapters ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id         SERIAL PRIMARY KEY,
+  user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,
+  actor      TEXT NOT NULL DEFAULT '',
+  story_id   INT REFERENCES stories(id) ON DELETE CASCADE,
+  body       TEXT NOT NULL,
+  read       BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS notifications_user ON notifications(user_id, created_at DESC);

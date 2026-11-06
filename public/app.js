@@ -136,7 +136,7 @@ function viewStory(s){
       <p style="margin:0;font-size:16px;max-width:60ch">${esc(s.summary)}</p>
       <div class="row muted" style="font-size:14px">${r.length?`<span class="stars">${starStr(s.avg)}</span> ${s.avg.toFixed(1)} sur 5 · ${r.length} avis ·`:""} ${(s.reads||0).toLocaleString("fr-FR")} lectures · publiée le ${fmtDate(s.created_at)}</div>
       <div class="row"><a class="btn primary" href="#lecture" id="readBtn">Lire ${s.type==="courte"?"l'histoire":"le chapitre "+(reading.ch+1)}</a>
-        ${s.mine?`<button class="btn ghost small" id="delStory">Supprimer mon histoire</button>`:`<button class="report" data-report-type="story" data-report-id="${s.id}">Signaler cette histoire</button>`}</div>
+        ${s.mine?`<a class="btn small" href="#modifier-${s.id}">Modifier</a><button class="btn ghost small" id="delStory">Supprimer</button>`:`<button class="report" data-report-type="story" data-report-id="${s.id}">Signaler cette histoire</button>`}</div>
     </div>
   </section>
   ${s.type!=="courte"?`<div style="margin-top:28px"><div class="eyebrow" style="margin-bottom:8px">Chapitres</div><div class="chap-list" id="chapList">${s.chapters.map((c,i)=>`<button data-ch="${i}" class="${i===reading.ch?"on":""}"><span>${i+1}. ${esc(c.title)}</span><span class="muted">${Math.max(1,Math.round(c.body.split(/\s+/).length/200))} min</span></button>`).join("")}</div></div>`:""}
@@ -251,37 +251,65 @@ function viewAuthor(a){
 }
 function bindAuthor(a){$("#followBtn")?.addEventListener("click",()=>toggleFollow(a.pseudo))}
 
-/* ---------- Connexion / inscription ---------- */
+/* ---------- Connexion / inscription / code de secours ---------- */
 let authTab="signup";
+const passInput=(id,ac,label)=>`<div class="field"><label for="${id}">${label}</label><input type="password" id="${id}" minlength="8" autocomplete="${ac}" required class="pw"></div>`;
 function viewAuth(){
-  const y=new Date().getFullYear();
+  const y=new Date().getFullYear(),T=authTab;
   return`<div class="panel stack" style="max-width:460px;margin:10px auto">
-    <div class="tabs" id="authTabs"><button class="opt" data-t="signup" aria-pressed="${authTab==="signup"}">Créer un compte</button><button class="opt" data-t="login" aria-pressed="${authTab==="login"}">J'ai déjà un compte</button></div>
-    <h2>${authTab==="signup"?"Ton identité d'auteur":"Content de te revoir"}</h2>
-    ${authTab==="signup"?`<p class="muted" style="margin:0">Ici, pas de prénom, pas de nom, pas d'e-mail. Juste un pseudo qui te ressemble.</p>`:""}
+    <div class="tabs" id="authTabs"><button class="opt" data-t="signup" aria-pressed="${T==="signup"}">Créer un compte</button><button class="opt" data-t="login" aria-pressed="${T!=="signup"}">J'ai déjà un compte</button></div>
+    <h2>${T==="signup"?"Ton identité d'auteur":T==="login"?"Content de te revoir":"Mot de passe oublié"}</h2>
+    ${T==="signup"?`<p class="muted" style="margin:0">Ici, pas de prénom, pas de nom, pas d'e-mail. Juste un pseudo qui te ressemble.</p>`:""}
+    ${T==="recover"?`<p class="muted" style="margin:0">Utilise le code de secours qu'on t'a donné à l'inscription (il ressemble à ABCD-EFGH-JKLM).</p>`:""}
     <form id="authForm" class="stack" novalidate>
       <div class="field"><label for="aPseudo">Pseudo</label><input type="text" id="aPseudo" maxlength="24" autocomplete="username" placeholder="ex. PlumeDeCorbeau" required></div>
-      ${authTab==="signup"?`<div class="row muted" style="font-size:13px">Idées : ${["EncreViolette","RenardDesMots","Nuage_Bleu"].map(x=>`<button type="button" class="btn small" data-idea="${x}">${x}</button>`).join("")}</div>`:""}
-      <div class="field"><label for="aPass">Mot de passe</label><input type="password" id="aPass" minlength="8" autocomplete="${authTab==="signup"?"new-password":"current-password"}" required style="background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:16px"></div>
-      ${authTab==="signup"?`
+      ${T==="signup"?`<div class="row muted" style="font-size:13px">Idées : ${["EncreViolette","RenardDesMots","Nuage_Bleu"].map(x=>`<button type="button" class="btn small" data-idea="${x}">${x}</button>`).join("")}</div>`:""}
+      ${T==="recover"?`<div class="field"><label for="aCode">Code de secours</label><input type="text" id="aCode" maxlength="20" autocomplete="off" placeholder="ABCD-EFGH-JKLM" style="text-transform:uppercase;letter-spacing:.08em"></div>`:""}
+      ${passInput("aPass",T==="login"?"current-password":"new-password",T==="recover"?"Nouveau mot de passe":"Mot de passe")}
+      ${T==="signup"?`
       <div class="field"><label for="aYear">Année de naissance</label><select id="aYear"><option value="">Choisis</option>${Array.from({length:91},(_,i)=>y-10-i).map(v=>`<option>${v}</option>`).join("")}</select>
         <span class="muted" style="font-size:12px">Elle n'est jamais affichée. Elle sert à te montrer les bonnes sections.</span></div>
-      <label class="row" id="parentRow" hidden style="font-size:14px;align-items:flex-start;flex-wrap:nowrap"><input type="checkbox" id="aParent" style="margin-top:4px"> <span>J'ai moins de 15 ans et un parent est d'accord pour que je crée ce compte.</span></label>
-      <p class="note" style="margin:0">Note bien ton mot de passe : sans e-mail, on ne peut pas le récupérer.</p>`:""}
+      <label class="check" id="parentRow" hidden><input type="checkbox" id="aParent"> <span>J'ai moins de 15 ans et un parent est d'accord pour que je crée ce compte.</span></label>
+      <label class="check"><input type="checkbox" id="aTerms"> <span>J'ai lu et j'accepte <a href="#charte" target="_blank">la charte de Mille Plumes</a> et <a href="#confidentialite" target="_blank">la politique de confidentialité</a>.</span></label>`:""}
       <div id="aErr" class="note" hidden></div>
-      <button class="btn primary" type="submit">${authTab==="signup"?"Créer mon compte":"Me connecter"}</button>
+      <button class="btn primary" type="submit">${T==="signup"?"Créer mon compte":T==="login"?"Me connecter":"Changer mon mot de passe"}</button>
+      ${T==="login"?`<button type="button" class="btn ghost small" id="toRecover">Mot de passe oublié ?</button>`:""}
+      ${T==="recover"?`<button type="button" class="btn ghost small" id="toLogin">Retour à la connexion</button>`:""}
     </form></div>`;
+}
+function showRecoveryCode(code,next){
+  modal(`<div class="eyebrow">À garder précieusement</div><h2>Ton code de secours</h2>
+    <p style="margin:0">Comme il n'y a pas d'e-mail, ce code est le seul moyen de récupérer ton compte si tu oublies ton mot de passe. Note-le sur papier ou fais une capture d'écran.</p>
+    <div class="code-box" id="codeBox">${esc(code)}</div>
+    <div class="row"><button class="btn small" id="copyCode">Copier</button><span class="muted" style="font-size:13px">On ne pourra plus te le montrer.</span></div>
+    <label class="check"><input type="checkbox" id="codeOk"> <span>J'ai bien noté mon code.</span></label>
+    <button class="btn primary" id="codeDone" disabled>Continuer</button>`);
+  // on remplace la modale par une copie : elle ne se ferme plus en touchant à côté
+  const m=$("#layer .modal");if(m){const c=m.cloneNode(true);m.replaceWith(c);
+    $("#copyCode",c).onclick=async()=>{try{await navigator.clipboard.writeText(code);toast("Code copié")}catch(e){const r=document.createRange();r.selectNodeContents($("#codeBox",c));const sel=getSelection();sel.removeAllRanges();sel.addRange(r)}};
+    $("#codeOk",c).onchange=e=>$("#codeDone",c).disabled=!e.target.checked;
+    $("#codeDone",c).onclick=()=>{closeModal();next&&next()};}
 }
 function bindAuth(){
   $("#authTabs").onclick=e=>{const b=e.target.closest("[data-t]");if(!b)return;authTab=b.dataset.t;render()};
+  $("#toRecover")?.addEventListener("click",()=>{authTab="recover";render()});
+  $("#toLogin")?.addEventListener("click",()=>{authTab="login";render()});
   document.querySelectorAll("[data-idea]").forEach(b=>b.onclick=()=>$("#aPseudo").value=b.dataset.idea);
   $("#aYear")?.addEventListener("change",e=>{$("#parentRow").hidden=!(e.target.value&&new Date().getFullYear()-e.target.value<15)});
   $("#authForm").onsubmit=async e=>{
     e.preventDefault();const err=$("#aErr");err.hidden=true;
-    const body={pseudo:$("#aPseudo").value.trim(),password:$("#aPass").value};
-    if(authTab==="signup"){body.birthYear=$("#aYear").value;body.parentOk=$("#aParent").checked;if(!body.birthYear)return showErr(err,"Choisis ton année de naissance.")}
-    try{const r=await api("POST",authTab==="signup"?"/api/signup":"/api/login",body);state.me=r.me;updateNav();toast(authTab==="signup"?"Bienvenue, "+r.me.pseudo:"Re-bonjour, "+r.me.pseudo);const n=state.afterLogin||"explorer";state.afterLogin=null;go(n)}
-    catch(e){showErr(err,e.message)}
+    const body={pseudo:$("#aPseudo").value.trim(),password:$("#aPass").value},T=authTab;
+    if(T==="signup"){body.birthYear=$("#aYear").value;body.parentOk=$("#aParent").checked;body.acceptTerms=$("#aTerms").checked;
+      if(!body.birthYear)return showErr(err,"Choisis ton année de naissance.");
+      if(!body.acceptTerms)return showErr(err,"Lis et accepte la charte pour créer ton compte.")}
+    if(T==="recover")body.code=$("#aCode").value;
+    try{
+      const r=await api("POST",{signup:"/api/signup",login:"/api/login",recover:"/api/recover"}[T],body);
+      state.me=r.me;updateNav();
+      const n=state.afterLogin||"explorer";state.afterLogin=null;
+      const done=()=>{toast(T==="login"?"Re-bonjour, "+r.me.pseudo:T==="recover"?"Mot de passe changé":"Bienvenue, "+r.me.pseudo);authTab="login";go(n)};
+      if(r.recoveryCode)showRecoveryCode(r.recoveryCode,done);else done();
+    }catch(e){showErr(err,e.message)}
   };
 }
 
@@ -290,13 +318,22 @@ let draft=null;
 function newDraft(){return{title:"",summary:"",section:"jeunesse",genre:"Fantaisie",type:"courte",chapters:[{t:"",body:""}],
   cover:{bg:"#3B1F5C",bg2:"#D3336A",pattern:"gradient",shape:"circle",shapeColor:"#F2C94C",font:"display",text:"#FFFFFF"}}}
 function wc(t){const n=(t||"").trim()?t.trim().split(/\s+/).length:0;return n+" mot"+(n>1?"s":"")+(n?` · environ ${Math.max(1,Math.round(n/200))} min de lecture`:"")}
+let editing=null; // id de l'histoire en cours de modification
+async function loadEdit(id){
+  const s=(await api("GET","/api/stories/"+encodeURIComponent(id))).story;
+  if(!s.mine)throw new Error("Tu ne peux modifier que tes propres histoires.");
+  editing=s.id;
+  draft={title:s.title,summary:s.summary,section:s.section,genre:s.genre,type:s.type,cover:{...s.cover},chapters:s.chapters.map(c=>({t:c.title,body:c.body}))};
+  return s;
+}
 function viewWrite(){
+  if(location.hash.startsWith("#ecrire")&&editing){editing=null;draft=null}
   draft=draft||store.get("draft",null)||newDraft();
   const d=draft,c=d.cover;
   const sw=key=>`<div class="swatches" data-key="${key}">${PALETTE.map(col=>`<button class="sw" style="background:${col}" data-v="${col}" aria-label="${col}" aria-pressed="${c[key]===col}"></button>`).join("")}</div>`;
   const opts=(key,obj)=>`<div class="opt-row" data-key="${key}">${Object.entries(obj).map(([k,v])=>`<button class="opt" data-v="${k}" aria-pressed="${c[key]===k}" ${key==="font"?`style="font-family:${FONTS[k]}"`:""}>${v}</button>`).join("")}</div>`;
   return`<div class="eyebrow">Atelier d'écriture · tu publies en tant que ${esc(state.me.pseudo)}</div>
-  <h1 style="margin:6px 0 22px">Nouvelle histoire</h1>
+  <h1 style="margin:6px 0 22px">${editing?"Modifier mon histoire":"Nouvelle histoire"}</h1>
   <div class="studio">
     <div class="stack">
       <div class="field"><label for="wTitle">Titre</label><input type="text" id="wTitle" maxlength="70" value="${esc(d.title)}" placeholder="Le titre de ton histoire"></div>
@@ -312,7 +349,7 @@ function viewWrite(){
         <div class="muted" style="font-size:12px" data-wc="${i}">${wc(ch.body)}</div></div>`).join("")}</div>
       ${d.type==="chapitres"?`<button class="btn" id="addCh">+ Ajouter un chapitre</button>`:""}
       <div id="wErr" class="note" hidden></div>
-      <div class="row"><button class="btn primary" id="publish">Publier</button><button class="btn" id="saveDraft">Garder le brouillon</button><button class="btn ghost" id="resetDraft">Tout effacer</button></div>
+      <div class="row">${editing?`<button class="btn primary" id="publish">Enregistrer les modifications</button><a class="btn ghost" href="#histoire-${editing}">Annuler</a>`:`<button class="btn primary" id="publish">Publier</button><button class="btn" id="saveDraft">Garder le brouillon</button><button class="btn ghost" id="resetDraft">Tout effacer</button>`}</div>
     </div>
     <aside class="designer panel">
       <div class="eyebrow">Ta couverture</div>
@@ -350,18 +387,20 @@ function bindWrite(){
     const b=e.target.closest("[data-v]");if(!b)return;d.cover[g.dataset.key]=b.dataset.v;delete d.cover.ai;
     g.querySelectorAll("[data-v]").forEach(x=>x.setAttribute("aria-pressed",x===b));refreshCover()}));
   $("#aiGen").onclick=aiCover;
-  $("#saveDraft").onclick=()=>{store.set("draft",d);toast("Brouillon gardé sur cet appareil")};
-  $("#resetDraft").onclick=()=>{draft=newDraft();store.set("draft",null);render()};
+  $("#saveDraft")?.addEventListener("click",()=>{store.set("draft",d);toast("Brouillon gardé sur cet appareil")});
+  $("#resetDraft")?.addEventListener("click",()=>{draft=newDraft();store.set("draft",null);render()});
   $("#publish").onclick=async()=>{
     const err=$("#wErr"),fail=m=>{showErr(err,m);err.scrollIntoView({block:"center"})};
     if(!d.title.trim())return fail("Il manque un titre.");
     if(d.chapters.some(c=>c.body.trim().split(/\s+/).length<20))return fail("Chaque partie doit faire au moins 20 mots.");
     if(personal(d.title+d.summary+d.chapters.map(c=>c.body).join(" ")))return fail("Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le pour rester anonyme.");
-    const btn=$("#publish");btn.disabled=true;btn.textContent="Publication…";
+    const btn=$("#publish"),label=btn.textContent;btn.disabled=true;btn.textContent="Enregistrement…";
+    const payload={title:d.title,summary:d.summary,section:d.section,genre:d.genre,type:d.type,cover:d.cover,chapters:d.chapters.map(c=>({title:c.t,body:c.body}))};
     try{
-      const r=await api("POST","/api/stories",{title:d.title,summary:d.summary,section:d.section,genre:d.genre,type:d.type,cover:d.cover,chapters:d.chapters.map(c=>({title:c.t,body:c.body}))});
-      draft=null;store.set("draft",null);toast("Ton histoire est publiée !");go("histoire-"+r.id);
-    }catch(e){btn.disabled=false;btn.textContent="Publier";fail(e.message)}
+      const r=editing?await api("PUT","/api/stories/"+editing,payload):await api("POST","/api/stories",payload);
+      if(!editing)store.set("draft",null);
+      toast(editing?"Modifications enregistrées":"Ton histoire est publiée !");draft=null;editing=null;reading.id=null;go("histoire-"+r.id);
+    }catch(e){btn.disabled=false;btn.textContent=label;fail(e.message)}
   };
 }
 function aiCover(){
@@ -394,7 +433,7 @@ function viewSpace(sp){
   const me=state.me;
   return`<section class="author-head">${avatar(me.pseudo,me.color)}
     <div class="stack" style="gap:4px;flex:1;min-width:0"><div class="eyebrow">Mon espace${me.premium?" · ★ Premium":""}</div><h1>${esc(me.pseudo)}</h1>
-    <div class="row"><a class="btn small" href="#auteur-${encodeURIComponent(me.pseudo)}">Voir ma page publique</a><button class="btn small ghost" id="logout">Me déconnecter</button></div></div></section>
+    <div class="row"><a class="btn small" href="#auteur-${encodeURIComponent(me.pseudo)}">Voir ma page publique</a>${me.isAdmin?`<a class="btn small primary" href="#moderation">Modération</a>`:""}<button class="btn small ghost" id="logout">Me déconnecter</button></div></div></section>
   <section class="cols" style="margin-top:0">
     <div class="stack">
       <div class="panel stack"><h3>Ma biographie</h3><textarea id="bioIn" rows="3" maxlength="300" placeholder="Parle de ce que tu aimes écrire, sans infos perso">${esc(me.bio)}</textarea><div id="bErr" class="note" hidden></div><div><button class="btn small" id="bioSave">Enregistrer</button></div></div>
@@ -410,7 +449,16 @@ function viewSpace(sp){
         <h3>Leurs dernières annonces</h3>
         ${sp.feed.length?sp.feed.map(x=>`<div class="post"><time>${esc(x.pseudo)} · ${fmtDate(x.created_at)}</time><div>${esc(x.body)}</div></div>`).join(""):`<p class="muted" style="margin:0">Les annonces des auteurs que tu suis apparaîtront ici.</p>`}
       </div>
-      <div class="panel stack"><h3>Mon compte</h3><p class="muted" style="margin:0;font-size:14px">Supprimer ton compte efface aussi tes histoires, tes avis et ton blog.</p><div><button class="btn small ghost" id="delMe">Supprimer mon compte</button></div></div>
+      ${me.adultPending?`<div class="note">Ton compte adulte attend la validation d'un modérateur. En attendant, tu as accès à la section Jeunesse.</div>`:""}
+      <div class="panel stack"><h3>Sécurité</h3>
+        ${passInput("curPass","current-password","Mot de passe actuel")}
+        ${passInput("newPass","new-password","Nouveau mot de passe")}
+        <div id="pwErr" class="note" hidden></div>
+        <div class="row"><button class="btn small primary" id="pwSave">Changer mon mot de passe</button><button class="btn small" id="newCode">Nouveau code de secours</button></div>
+        <p class="muted" style="margin:0;font-size:12px">Le nouveau code de secours remplace l'ancien. Il faut ton mot de passe actuel.</p>
+      </div>
+      <div class="panel stack"><h3>Mon compte</h3><p class="muted" style="margin:0;font-size:14px">Supprimer ton compte efface aussi tes histoires, tes avis et ton blog.</p><div><button class="btn small ghost" id="delMe">Supprimer mon compte</button></div>
+        <p class="muted" style="margin:0;font-size:12px"><a href="#charte">Charte</a> · <a href="#confidentialite">Confidentialité</a> · <a href="#mentions">Mentions légales</a></p></div>
     </div>
   </section>`;
 }
@@ -419,6 +467,10 @@ function bindSpace(){
     try{state.me=(await api("PATCH","/api/me",{bio:v})).me;toast("Biographie enregistrée")}catch(e){showErr($("#bErr"),e.message)}};
   $("#postSend").onclick=async()=>{const v=$("#postIn").value.trim(),e=$("#poErr");if(v.length<3)return showErr(e,"Écris quelque chose avant de publier.");if(personal(v))return showErr(e,"Pas d'infos personnelles dans les annonces.");
     try{await api("POST","/api/posts",{body:v});toast("Annonce publiée");render()}catch(x){showErr(e,x.message)}};
+  $("#pwSave").onclick=async()=>{const e=$("#pwErr");e.hidden=true;
+    try{await api("POST","/api/me/password",{currentPassword:$("#curPass").value,newPassword:$("#newPass").value});$("#curPass").value=$("#newPass").value="";toast("Mot de passe changé")}catch(x){showErr(e,x.message)}};
+  $("#newCode").onclick=async()=>{const e=$("#pwErr");e.hidden=true;
+    try{const r=await api("POST","/api/me/recovery-code",{currentPassword:$("#curPass").value});$("#curPass").value="";showRecoveryCode(r.recoveryCode)}catch(x){showErr(e,x.message)}};
   $("#logout").onclick=async()=>{await api("POST","/api/logout").catch(()=>{});state.me=null;updateNav();toast("Tu es déconnecté·e");go("explorer")};
   $("#delMe").onclick=()=>modal(`<h3>Supprimer ton compte ?</h3><p style="margin:0">Tes histoires, tes avis, ton blog et tes abonnements seront effacés pour toujours.</p>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Annuler</button><button class="btn primary" id="delMeOk">Tout supprimer</button></div>`,
@@ -439,20 +491,40 @@ function viewPremium(){
 function bindPremium(){$("#premBtn").onclick=async()=>{if(!state.me)return needLogin("premium");try{state.me=(await api("POST","/api/premium")).me;toast(state.me.premium?"Premium activé pour le test":"Premium désactivé");render()}catch(e){toast(e.message)}}}
 
 /* ---------- Modération ---------- */
-async function loadModeration(){return (await api("GET","/api/admin/reports")).reports}
-function viewModeration(list){
-  return`<div class="eyebrow">Réservé à la modération</div><h1 style="margin:6px 0 18px">Signalements à traiter</h1>
+async function loadModeration(){const[r,a]=await Promise.all([api("GET","/api/admin/reports"),api("GET","/api/admin/adults")]);return{reports:r.reports,adults:a.users}}
+function viewModeration(d){
+  const list=d.reports;
+  return`<div class="eyebrow">Réservé à la modération</div><h1 style="margin:6px 0 18px">Modération</h1>
+  <h2 style="margin-bottom:10px">Comptes adultes à valider</h2>
+  <p class="muted" style="margin:0 0 12px;max-width:60ch">Ces personnes déclarent avoir 18 ans ou plus. Valide seulement si tu sais que c'est vrai (par exemple une personne que tu connais). Sinon, refuse : le compte garde l'accès à la section Jeunesse.</p>
+  ${d.adults.length?`<div class="stack" style="margin-bottom:28px">${d.adults.map(u=>`<div class="panel row" style="justify-content:space-between"><span><b>${esc(u.pseudo)}</b> <span class="muted">· né·e en ${u.birth_year} · inscrit·e le ${fmtDate(u.created_at)}</span></span>
+    <span class="row"><button class="btn small primary" data-adult="verify" data-id="${u.id}">Valider</button><button class="btn small ghost" data-adult="reject" data-id="${u.id}">Refuser</button></span></div>`).join("")}</div>`:`<div class="empty" style="margin-bottom:28px">Aucun compte en attente.</div>`}
+  <h2 style="margin-bottom:10px">Signalements à traiter</h2>
   ${list.length?`<div class="stack">${list.map(r=>`<div class="panel stack" style="gap:8px">
     <div class="row" style="justify-content:space-between"><span class="tag ${r.target_type==="story"?"a":""}">${r.target_type==="story"?"Histoire":"Avis"}</span><span class="muted" style="font-size:13px">${fmtDate(r.created_at)}</span></div>
     <b>${esc(r.reason)}</b><div class="muted">${esc((r.excerpt||"(supprimé)").slice(0,200))}</div>
     <div class="row">${r.story_id?`<a class="btn small" href="#histoire-${r.story_id}">Voir</a>`:""}<button class="btn small primary" data-act="hide" data-id="${r.id}">Masquer le contenu</button><button class="btn small ghost" data-act="ok" data-id="${r.id}">Rien à signaler</button></div></div>`).join("")}</div>`:`<div class="empty">Aucun signalement en attente.</div>`}`;
 }
-function bindModeration(){document.querySelectorAll("[data-act]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/reports/"+b.dataset.id,{action:b.dataset.act});toast(b.dataset.act==="hide"?"Contenu masqué":"Signalement classé");render()}catch(e){toast(e.message)}})}
+function bindModeration(){document.querySelectorAll("[data-adult]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/adults/"+b.dataset.id,{action:b.dataset.adult});toast(b.dataset.adult==="verify"?"Compte adulte validé":"Demande refusée");render()}catch(e){toast(e.message)}});document.querySelectorAll("[data-act]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/reports/"+b.dataset.id,{action:b.dataset.act});toast(b.dataset.act==="hide"?"Contenu masqué":"Signalement classé");render()}catch(e){toast(e.message)}})}
+
+/* ---------- Notifications ---------- */
+async function loadNotifs(){const r=await api("GET","/api/notifications");if(state.me?.unread){api("POST","/api/notifications/read").catch(()=>{});state.me.unread=0;updateNav()}return r.notifications}
+const NOTIF_ICON={story:"📖",chapter:"✍️",post:"💬",review:"⭐",follow:"👋",adult:"✅"};
+function viewNotifs(list){
+  return`<div class="eyebrow">Ce qui s'est passé</div><h1 style="margin:6px 0 18px">Notifications</h1>
+  ${list.length?`<div class="panel stack notif-list">${list.map(n=>{const link=n.story_id?`#histoire-${n.story_id}`:(n.kind==="follow"||n.kind==="post")&&n.actor!=="Anonyme"?`#auteur-${encodeURIComponent(n.actor)}`:"";
+    return`<${link?`a href="${link}"`:"div"} class="notif ${n.read?"":"unread"}"><span class="ni" aria-hidden="true">${NOTIF_ICON[n.kind]||"•"}</span><span class="nt"><b>${esc(n.actor)}</b> ${esc(n.body)}<time>${fmtDate(n.created_at)}</time></span></${link?"a":"div"}>`}).join("")}</div>`
+  :`<div class="empty">Rien pour l'instant. Tu seras prévenu·e ici quand quelqu'un te suit, note une de tes histoires, ou quand un auteur que tu suis publie la suite.</div>`}`;
+}
+
+/* ---------- Pages légales ---------- */
+function viewLegal(kind){return`<article class="legal">${(window.LEGAL||{})[kind]||""}</article>`}
 
 /* ---------- Navigation ---------- */
 function setSection(s){state.section=s;state.genre="Tous";store.set("section",s);syncSeg()}
 function syncSeg(){$("#secJ").setAttribute("aria-pressed",state.section==="jeunesse");$("#secA").setAttribute("aria-pressed",state.section==="adulte")}
 function updateNav(){
+  const bell=$("#bell");if(bell){bell.hidden=!state.me;const n=state.me?.unread||0;$("#bellCount").textContent=n>9?"9+":n;$("#bellCount").hidden=!n;bell.setAttribute("aria-label",n?n+" notification(s) non lue(s)":"Notifications")}
   const a=$("#mainNav a[data-r=espace]");if(a)a.textContent=state.me?"Mon espace":"Se connecter";
   const t=$("#tabBar a[data-r=espace] span");if(t)t.textContent=state.me?"Mon espace":"Connexion";
   let m=$("#mainNav a[data-r=moderation]");
@@ -461,7 +533,7 @@ function updateNav(){
 }
 $("#secJ").onclick=()=>{setSection("jeunesse");go("explorer")};
 $("#secA").onclick=()=>{
-  if(!state.me?.adult){modal(`<h3>Section Adulte</h3><p style="margin:0">Cette partie est réservée aux comptes de 18 ans et plus.</p>
+  if(!state.me?.adult){modal(`<h3>Section Adulte</h3><p style="margin:0">${state.me?.adultPending?"Ton compte adulte attend la validation d'un modérateur. Tu y auras accès dès qu'il sera validé.":"Cette partie est réservée aux comptes de 18 ans et plus, validés par un modérateur."}</p>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Rester en Jeunesse</button>${state.me?"":`<button class="btn primary" id="gLogin">Se connecter</button>`}</div>`,
     m=>{$("#gLogin",m)?.addEventListener("click",()=>{closeModal();needLogin("explorer")})});return}
   setSection("adulte");go("explorer")};
@@ -470,7 +542,9 @@ function route(){
   const h=decodeURIComponent(location.hash.slice(1))||"explorer";
   if(h.startsWith("histoire-"))return["histoire",h.slice(9)];
   if(h.startsWith("auteur-"))return["auteur",h.slice(7)];
-  return[["explorer","ecrire","espace","premium","connexion","moderation"].includes(h)?h:"explorer"];
+  if(h.startsWith("modifier-"))return["modifier",h.slice(9)];
+  if(["charte","confidentialite","mentions"].includes(h))return["legal",h];
+  return[["explorer","ecrire","espace","premium","connexion","moderation","notifications"].includes(h)?h:"explorer"];
 }
 const VIEWS={
   explorer:[loadExplorer,viewExplorer,bindExplorer],
@@ -481,16 +555,20 @@ const VIEWS={
   premium:[null,viewPremium,bindPremium],
   connexion:[null,viewAuth,bindAuth],
   moderation:[loadModeration,viewModeration,bindModeration,true],
+  modifier:[loadEdit,()=>viewWrite(),()=>bindWrite(),true],
+  notifications:[loadNotifs,viewNotifs,()=>{},true],
+  legal:[null,viewLegal,()=>{}],
 };
 let lastRoute="",renderId=0;
 async function render(){
-  let[r,arg]=route();const id=++renderId,app=$("#app");
+  let[r,arg]=route(),data;const id=++renderId,app=$("#app");
   if(r==="connexion"&&state.me){r="espace"}
+  if(r!=="modifier"&&editing){editing=null;draft=null}
   const[load,view,bind,needsUser]=VIEWS[r];
+  if(r==="legal"){data=arg}
   document.querySelectorAll("#mainNav a,#tabBar a").forEach(a=>a.classList.toggle("on",a.dataset.r===r||(r==="connexion"&&a.dataset.r==="espace")));
   const key=r+(arg||"");const changed=key!==lastRoute;lastRoute=key;
   if(needsUser&&!state.me){state.afterLogin=location.hash.slice(1);app.innerHTML=viewAuth();bindAuth();return}
-  let data;
   if(load){
     const slow=setTimeout(()=>{if(id===renderId)app.innerHTML=`<div class="spin" style="margin:60px auto"></div>`},250);
     try{data=await load(arg)}catch(e){clearTimeout(slow);if(id!==renderId)return;app.innerHTML=`<div class="empty">${esc(e.message)}<br><button class="btn" style="margin-top:12px" id="retry">Réessayer</button></div>`;$("#retry").onclick=render;return}
@@ -498,7 +576,7 @@ async function render(){
   }
   if(id!==renderId)return;
   if(r==="histoire")lastStory=data;
-  app.innerHTML=view(data);bind(data);bindReports();
+  app.innerHTML=view(r==="legal"?arg:data);bind(data);bindReports();
   if(changed)window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",render);

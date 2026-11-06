@@ -14,9 +14,7 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px)}</style>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gloock&family=Figtree:wght@400;500;600;700&family=Caveat:wght@600&family=Cinzel:wght@600&family=Pacifico&family=Special+Elite&family=Bungee&family=Lora:ital@1&display=swap">
+<link rel="stylesheet" href="fonts.css">
 <style>
 /* Layout : une "bibliothèque de nuit" — barre haute avec le choix Jeunesse/Adulte, étagères de couvertures, pages de lecture étroites */
 :root{
@@ -188,6 +186,30 @@ footer .wrap{padding-block:20px;display:flex;flex-wrap:wrap;gap:8px 20px;justify
   .story-head{grid-template-columns:130px 1fr;gap:18px}
   .designer{position:static}
 }
+
+/* Notifications, cases à cocher, code de secours, pages légales */
+.bell{position:relative;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;color:var(--ink);text-decoration:none}
+.bell:hover{background:var(--surface-2)}
+.bell svg{width:22px;height:22px}
+.badge{position:absolute;top:2px;right:0;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-size:11px;font-weight:700;display:grid;place-items:center}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.check input{margin-top:3px;flex:none;width:18px;height:18px}
+.pw{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:16px}
+.code-box{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:24px;letter-spacing:.12em;text-align:center;padding:14px;border:2px dashed var(--accent);border-radius:10px;background:var(--surface-2);user-select:all}
+.panel.notif-list{gap:0;padding:0;overflow:hidden}
+.notif{display:flex;gap:12px;padding:14px 16px;border-top:1px solid var(--line);text-decoration:none;color:inherit}
+.notif:first-child{border-top:0}
+.notif.unread{background:color-mix(in srgb,var(--accent) 7%,var(--surface))}
+.notif:hover{background:var(--surface-2)}
+.notif .ni{font-size:20px;line-height:1.2}
+.notif .nt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.notif time{font-size:12px;color:var(--muted)}
+.legal{max-width:68ch;margin:0 auto}
+.legal h1{margin:6px 0 14px}
+.legal h2{font-size:21px;margin:26px 0 8px}
+.legal .lead{font-size:17px;color:var(--muted)}
+.legal ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
+footer .links a{color:inherit}
 .tabbar{display:none}
 .demo-band .short{display:none}
 /* ---------- Version mobile : barre d'onglets en bas, en-tête compact ---------- */
@@ -208,7 +230,11 @@ footer .wrap{padding-block:20px;display:flex;flex-wrap:wrap;gap:8px 20px;justify
   .tabbar a.write svg{width:46px;height:46px;padding:11px;border-radius:50%;background:var(--accent);color:var(--accent-ink);margin-top:-22px;box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 45%,transparent)}
   .tabbar a.write.on{color:var(--accent)}
   main{padding-block:18px calc(96px + env(safe-area-inset-bottom,0px))}
-  footer{display:none}
+  footer{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+  main{padding-bottom:24px}
+  .bell{margin-left:auto;order:2}
+  header.top .seg{order:3}
+  header.top .wrap{gap:8px}
   .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px))}
   .modal{align-items:end;padding:0}
   .modal .box{border-radius:18px 18px 0 0;max-width:none;padding:22px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px))}
@@ -244,6 +270,9 @@ footer .wrap{padding-block:20px;display:flex;flex-wrap:wrap;gap:8px 20px;justify
   .stats{gap:16px}
 }
 @media (max-width:480px){
+  .logo svg{display:none}
+  .logo{font-size:20px}
+  .seg button{padding:6px 9px}
   .story-head{grid-template-columns:110px 1fr;gap:14px}
   .story-head .info h1{font-size:26px}
   .story-head .info>p{grid-column:1/-1}
@@ -272,15 +301,17 @@ footer .wrap{padding-block:20px;display:flex;flex-wrap:wrap;gap:8px 20px;justify
       <a href="#espace" data-r="espace">Mon espace</a>
       <a href="#premium" data-r="premium" class="prem">★ Premium</a>
     </nav>
+    <a href="#notifications" id="bell" class="bell" hidden aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span id="bellCount" class="badge" hidden>0</span></a>
   </div>
 </header>
 <div class="demo-band"><div class="wrap"><span class="long">Version bêta : tout le monde écrit sous pseudo. Ne partage jamais ton vrai nom, ton adresse ou ton numéro.</span><span class="short">Version bêta · jamais d'infos personnelles</span></div></div>
 <main class="wrap" id="app"></main>
-<footer><div class="wrap"><span>Ici, tout le monde écrit sous pseudo. Pas de vrai nom, pas d'adresse, pas de numéro.</span><span>Version bêta · imaginée par Roxane</span></div></footer>
+<footer><div class="wrap"><span>Ici, tout le monde écrit sous pseudo. Pas de vrai nom, pas d'adresse, pas de numéro.</span><span class="links"><a href="#charte">Charte</a> · <a href="#confidentialite">Confidentialité</a> · <a href="#mentions">Mentions légales</a></span><span>Version bêta · imaginée par Roxane</span></div></footer>
 <div id="layer"></div>
 <nav class="tabbar" id="tabBar" aria-label="Navigation"><a href="#explorer" data-r="explorer" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6.5A2.5 2.5 0 0 0 4 20.5 2.5 2.5 0 0 0 6.5 23H19v-5"/></svg><span>Explorer</span></a><a href="#espace" data-r="espace" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Mon espace</span></a><a href="#ecrire" data-r="ecrire" class="write"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Écrire</span></a><a href="#premium" data-r="premium" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span>Premium</span></a></nav>
 <script>if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
 
+<script src="legal.js"></script>
 <script src="app.js"></script>
 
 </body>

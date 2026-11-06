@@ -7,6 +7,7 @@ const cookieParser = require("cookie-parser");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
+const { findBadWord } = require("./lib/filter");
 
 const PORT = process.env.PORT || 3000;
 const PROD = process.env.NODE_ENV === "production";
@@ -25,7 +26,18 @@ const GENRES = ["Fantaisie","Fantastique","Romance","Aventure","Humour","Autobio
 const COLORS = ["#1D1A33","#3B1F5C","#0F4C5C","#1F6E43","#7A1E3A","#D3336A","#F28C38"];
 const thisYear = () => new Date().getFullYear();
 const ageOf = u => thisYear() - u.birth_year;
-const isAdult = u => !!u && ageOf(u) >= 18;
+// Section Adulte : 18 ans déclarés ET compte validé par un modérateur
+const isAdult = u => !!u && ageOf(u) >= 18 && (u.adult_status === "verified" || u.is_admin);
+// Filtre de mots : refuse le texte si un mot interdit est trouvé
+const clean = (text, what = "Ton texte") => { const w = findBadWord(text); if (w) bad(`${what} contient un mot interdit sur le site (« ${w} »). Remplace-le pour pouvoir publier.`); };
+// Code de secours : remplace l'e-mail pour récupérer son compte
+const ALPH = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const newRecoveryCode = () => Array.from({ length: 3 }, () => Array.from({ length: 4 }, () => ALPH[crypto.randomInt(ALPH.length)]).join("")).join("-");
+const normCode = c => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+async function notifyFollowers(authorId, kind, actor, storyId, body) {
+  await q(`INSERT INTO notifications (user_id, kind, actor, story_id, body) SELECT follower_id, $2, $3, $4, $5 FROM follows WHERE author_id=$1`, [authorId, kind, actor, storyId, body]);
+}
+const notify = (userId, kind, actor, storyId, body) => q("INSERT INTO notifications (user_id, kind, actor, story_id, body) VALUES ($1,$2,$3,$4,$5)", [userId, kind, actor, storyId, body]);
 // Bloque e-mails, numéros de téléphone et comptes de réseaux sociaux (protection des mineurs)
 const personal = t => /[\w.+-]+@[\w-]+\.[\w.]+/.test(t) || /(\+33|0)[1-9]([\s.-]?\d{2}){4}/.test(t) || /(instagram|snap|insta|tiktok|whatsapp|discord)\s*[:@]/i.test(t);
 const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -74,7 +86,9 @@ app.use(wrap(async (req, res, next) => {
 const needUser = (req, res, next) => req.user ? next() : res.status(401).json({ error: "Connecte-toi d'abord." });
 const needAdmin = (req, res, next) => req.user?.is_admin ? next() : res.status(403).json({ error: "Réservé à la modération." });
 
-const publicMe = u => u && ({ id: u.id, pseudo: u.pseudo, bio: u.bio, color: u.color, adult: isAdult(u), premium: u.premium, isAdmin: u.is_admin });
+const publicMe = (u, extra = {}) => u && ({ id: u.id, pseudo: u.pseudo, bio: u.bio, color: u.color, adult: isAdult(u),
+  adultPending: ageOf(u) >= 18 && !isAdult(u) && u.adult_status === "pending", premium: u.premium, isAdmin: u.is_admin, ...extra });
+const unreadCount = async u => (await q("SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read", [u.id])).rows[0].n;
 
 /* ----- Comptes ----- */
 const authLimit = limiter(20, 15 * 60 * 1000);
@@ -84,6 +98,8 @@ app.post("/api/signup", authLimit, wrap(async (req, res) => {
   if (pseudo.length < 3) bad("Ton pseudo doit faire au moins 3 caractères.");
   if (!/^[\p{L}\p{N}_.-]+$/u.test(pseudo)) bad("Pseudo : seulement des lettres, des chiffres, _ . ou - (pas d'espace).");
   if (personal(pseudo)) bad("Ce pseudo ressemble à une info personnelle.");
+  clean(pseudo, "Ce pseudo");
+  if (req.body.acceptTerms !== true) bad("Lis et accepte la charte de Mille Plumes pour créer ton compte.");
   if (password.length < 8) bad("Le mot de passe doit faire au moins 8 caractères.");
   if (!(birthYear >= thisYear() - 100 && birthYear <= thisYear() - 10)) bad("Il faut avoir au moins 10 ans pour s'inscrire.");
   const age = thisYear() - birthYear;
@@ -91,11 +107,13 @@ app.post("/api/signup", authLimit, wrap(async (req, res) => {
   const hash = await bcrypt.hash(password, 10);
   const color = COLORS[crypto.randomInt(COLORS.length)];
   const admin = ADMINS.includes(pseudo.toLowerCase());
+  const code = newRecoveryCode();
   try {
-    const r = await q(`INSERT INTO users (pseudo,password_hash,birth_year,color,parent_consent,is_admin) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [pseudo, hash, birthYear, color, age < 15, admin]);
+    const r = await q(`INSERT INTO users (pseudo,password_hash,birth_year,color,parent_consent,is_admin,recovery_hash,terms_accepted_at,adult_status)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,now(),$8) RETURNING *`,
+      [pseudo, hash, birthYear, color, age < 15, admin, await bcrypt.hash(normCode(code), 10), age >= 18 ? (admin ? "verified" : "pending") : "none"]);
     setSession(res, r.rows[0]);
-    res.json({ me: publicMe(r.rows[0]) });
+    res.json({ me: publicMe(r.rows[0], { unread: 0 }), recoveryCode: code });
   } catch (e) {
     if (e.code === "23505") bad("Ce pseudo est déjà pris. Essaie une variante.");
     throw e;
@@ -107,13 +125,38 @@ app.post("/api/login", authLimit, wrap(async (req, res) => {
   if (!u || !(await bcrypt.compare(String(req.body.password || ""), u.password_hash))) bad("Pseudo ou mot de passe incorrect.");
   if (ADMINS.includes(u.pseudo.toLowerCase()) && !u.is_admin) { await q("UPDATE users SET is_admin=true WHERE id=$1", [u.id]); u.is_admin = true; }
   setSession(res, u);
-  res.json({ me: publicMe(u) });
+  res.json({ me: publicMe(u, { unread: await unreadCount(u) }) });
+}));
+// Mot de passe oublié : pseudo + code de secours -> nouveau mot de passe et nouveau code
+app.post("/api/recover", authLimit, wrap(async (req, res) => {
+  const r = await q("SELECT * FROM users WHERE lower(pseudo)=lower($1) AND NOT is_demo", [str(req.body.pseudo, 24)]);
+  const u = r.rows[0], password = String(req.body.password || "");
+  if (!u || !u.recovery_hash || !(await bcrypt.compare(normCode(req.body.code), u.recovery_hash))) bad("Pseudo ou code de secours incorrect.");
+  if (password.length < 8) bad("Le nouveau mot de passe doit faire au moins 8 caractères.");
+  const code = newRecoveryCode();
+  const up = await q("UPDATE users SET password_hash=$1, recovery_hash=$2 WHERE id=$3 RETURNING *", [await bcrypt.hash(password, 10), await bcrypt.hash(normCode(code), 10), u.id]);
+  setSession(res, up.rows[0]);
+  res.json({ me: publicMe(up.rows[0], { unread: await unreadCount(u) }), recoveryCode: code });
+}));
+app.post("/api/me/password", needUser, authLimit, wrap(async (req, res) => {
+  const password = String(req.body.newPassword || "");
+  if (!(await bcrypt.compare(String(req.body.currentPassword || ""), req.user.password_hash))) bad("Ton mot de passe actuel n'est pas le bon.");
+  if (password.length < 8) bad("Le nouveau mot de passe doit faire au moins 8 caractères.");
+  await q("UPDATE users SET password_hash=$1 WHERE id=$2", [await bcrypt.hash(password, 10), req.user.id]);
+  res.json({ ok: true });
+}));
+app.post("/api/me/recovery-code", needUser, authLimit, wrap(async (req, res) => {
+  if (!(await bcrypt.compare(String(req.body.currentPassword || ""), req.user.password_hash))) bad("Ton mot de passe n'est pas le bon.");
+  const code = newRecoveryCode();
+  await q("UPDATE users SET recovery_hash=$1 WHERE id=$2", [await bcrypt.hash(normCode(code), 10), req.user.id]);
+  res.json({ recoveryCode: code });
 }));
 app.post("/api/logout", (req, res) => { res.clearCookie(COOKIE); res.json({ ok: true }); });
-app.get("/api/me", (req, res) => res.json({ me: publicMe(req.user) }));
+app.get("/api/me", wrap(async (req, res) => res.json({ me: req.user ? publicMe(req.user, { unread: await unreadCount(req.user) }) : null })));
 app.patch("/api/me", needUser, wrap(async (req, res) => {
   const bio = str(req.body.bio, 300);
   if (personal(bio)) bad("Retire l'e-mail, le numéro ou le compte de réseau social de ta bio.");
+  clean(bio, "Ta bio");
   const r = await q("UPDATE users SET bio=$1 WHERE id=$2 RETURNING *", [bio, req.user.id]);
   res.json({ me: publicMe(r.rows[0]) });
 }));
@@ -182,41 +225,73 @@ function cleanCover(c) {
     ai: c.ai === true,
   };
 }
-app.post("/api/stories", needUser, writeLimit, wrap(async (req, res) => {
-  const b = req.body, title = str(b.title, 70), summary = str(b.summary, 300);
+function readStoryBody(b, user) {
+  const title = str(b.title, 70), summary = str(b.summary, 300);
   const section = b.section === "adulte" ? "adulte" : "jeunesse";
   const type = b.type === "chapitres" ? "chapitres" : "courte";
   if (!title) bad("Il manque un titre.");
-  if (section === "adulte" && !isAdult(req.user)) bad("La section Adulte est réservée aux 18 ans et plus.");
+  if (section === "adulte" && !isAdult(user)) bad("La section Adulte est réservée aux comptes adultes validés.");
   if (!GENRES.includes(b.genre)) bad("Choisis un genre.");
   const chapters = (Array.isArray(b.chapters) ? b.chapters : []).slice(0, 100).map((c, i) => ({ title: str(c.title, 80), body: str(c.body, 60000), i }));
   if (!chapters.length || (type === "courte" && chapters.length !== 1)) bad("Le texte est vide.");
   if (chapters.some(c => c.body.split(/\s+/).length < 20)) bad("Chaque partie doit faire au moins 20 mots.");
-  if (personal(title + " " + summary + " " + chapters.map(c => c.body).join(" "))) bad("Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le pour rester anonyme.");
+  const all = title + " " + summary + " " + chapters.map(c => c.title + " " + c.body).join(" ");
+  if (personal(all)) bad("Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le pour rester anonyme.");
+  // Titre et résumé sont visibles partout ; le texte est filtré en Jeunesse seulement
+  clean(title + " " + summary, "Ton titre ou ton résumé");
+  if (section === "jeunesse") clean(all);
   const cover = cleanCover(b.cover);
-  if (cover.ai && !req.user.premium) cover.ai = false;
+  if (cover.ai && !user.premium) cover.ai = false;
+  return { title, summary: summary || "Une nouvelle histoire.", section, type, genre: b.genre, chapters, cover };
+}
+const chapterTitle = (type, c) => c.title || (type === "courte" ? "Histoire courte" : "Chapitre " + (c.i + 1));
+async function tx(fn) {
   const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const s = await client.query(`INSERT INTO stories (author_id,title,summary,section,genre,kind,cover) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-      [req.user.id, title, summary || "Une nouvelle histoire.", section, b.genre, type, cover]);
-    for (const c of chapters)
-      await client.query("INSERT INTO chapters (story_id,position,title,body) VALUES ($1,$2,$3,$4)",
-        [s.rows[0].id, c.i, c.title || (type === "courte" ? "Histoire courte" : "Chapitre " + (c.i + 1)), c.body]);
-    await client.query("COMMIT");
-    res.json({ id: s.rows[0].id });
-  } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
+  try { await client.query("BEGIN"); const r = await fn(client); await client.query("COMMIT"); return r; }
+  catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
+}
+app.post("/api/stories", needUser, writeLimit, wrap(async (req, res) => {
+  const d = readStoryBody(req.body, req.user);
+  const id = await tx(async c => {
+    const s = await c.query(`INSERT INTO stories (author_id,title,summary,section,genre,kind,cover) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+      [req.user.id, d.title, d.summary, d.section, d.genre, d.type, d.cover]);
+    for (const ch of d.chapters)
+      await c.query("INSERT INTO chapters (story_id,position,title,body) VALUES ($1,$2,$3,$4)", [s.rows[0].id, ch.i, chapterTitle(d.type, ch), ch.body]);
+    return s.rows[0].id;
+  });
+  await notifyFollowers(req.user.id, "story", req.user.pseudo, id, `a publié une nouvelle histoire : « ${d.title} »`);
+  res.json({ id });
+}));
+// Modifier une histoire : remplace titre, résumé, couverture et chapitres (avis et lectures conservés)
+app.put("/api/stories/:id", needUser, writeLimit, wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const old = await q("SELECT * FROM stories WHERE id=$1 AND author_id=$2", [id, req.user.id]);
+  if (!old.rows[0]) throw new HttpError(404, "Histoire introuvable.");
+  const d = readStoryBody(req.body, req.user);
+  const oldCount = (await q("SELECT count(*)::int AS n FROM chapters WHERE story_id=$1", [id])).rows[0].n;
+  await tx(async c => {
+    await c.query("UPDATE stories SET title=$1, summary=$2, section=$3, genre=$4, kind=$5, cover=$6, updated_at=now() WHERE id=$7",
+      [d.title, d.summary, d.section, d.genre, d.type, d.cover, id]);
+    await c.query("DELETE FROM chapters WHERE story_id=$1", [id]);
+    for (const ch of d.chapters)
+      await c.query("INSERT INTO chapters (story_id,position,title,body,updated_at) VALUES ($1,$2,$3,$4,now())", [id, ch.i, chapterTitle(d.type, ch), ch.body]);
+  });
+  if (d.type === "chapitres" && d.chapters.length > oldCount)
+    await notifyFollowers(req.user.id, "chapter", req.user.pseudo, id, `a publié un nouveau chapitre de « ${d.title} »`);
+  res.json({ id });
 }));
 app.post("/api/stories/:id/chapters", needUser, writeLimit, wrap(async (req, res) => {
   const id = parseInt(req.params.id, 10), title = str(req.body.title, 80), body = str(req.body.body, 60000);
-  const s = await q("SELECT kind FROM stories WHERE id=$1 AND author_id=$2", [id, req.user.id]);
+  const s = await q("SELECT kind, section, title FROM stories WHERE id=$1 AND author_id=$2", [id, req.user.id]);
   if (!s.rows[0]) throw new HttpError(404, "Histoire introuvable.");
   if (s.rows[0].kind !== "chapitres") bad("Une histoire courte n'a pas de chapitres.");
   if (body.split(/\s+/).length < 20) bad("Le chapitre doit faire au moins 20 mots.");
   if (personal(title + " " + body)) bad("Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le pour rester anonyme.");
+  if (s.rows[0].section === "jeunesse") clean(title + " " + body); else clean(title, "Ton titre");
   const n = await q("SELECT coalesce(max(position),-1)+1 AS n FROM chapters WHERE story_id=$1", [id]);
   await q("INSERT INTO chapters (story_id,position,title,body) VALUES ($1,$2,$3,$4)", [id, n.rows[0].n, title || "Chapitre " + (n.rows[0].n + 1), body]);
   await q("UPDATE stories SET updated_at=now() WHERE id=$1", [id]);
+  await notifyFollowers(req.user.id, "chapter", req.user.pseudo, id, `a publié un nouveau chapitre de « ${s.rows[0].title} »`);
   res.json({ position: n.rows[0].n });
 }));
 app.delete("/api/stories/:id", needUser, wrap(async (req, res) => {
@@ -230,13 +305,16 @@ app.post("/api/stories/:id/reviews", needUser, writeLimit, wrap(async (req, res)
   if (!(stars >= 1 && stars <= 5)) bad("Choisis une note de 1 à 5 étoiles.");
   if (body.length < 5) bad("Écris au moins quelques mots pour expliquer ta note.");
   if (personal(body)) bad("Pour ta sécurité, ne mets pas d'e-mail, de numéro ou de compte de réseau social dans ton avis.");
-  const s = await q("SELECT author_id, section FROM stories WHERE id=$1 AND NOT hidden", [id]);
+  const s = await q("SELECT author_id, section, title FROM stories WHERE id=$1 AND NOT hidden", [id]);
   if (!s.rows[0]) throw new HttpError(404, "Histoire introuvable.");
   if (s.rows[0].author_id === req.user.id) bad("Tu ne peux pas noter ta propre histoire.");
   if (s.rows[0].section === "adulte" && !isAdult(req.user)) throw new HttpError(403, "adult_only");
-  await q(`INSERT INTO reviews (story_id,user_id,anonymous,stars,body) VALUES ($1,$2,$3,$4,$5)
+  if (s.rows[0].section === "jeunesse") clean(body, "Ton avis");
+  const anonymous = req.body.anonymous !== false;
+  const ins = await q(`INSERT INTO reviews (story_id,user_id,anonymous,stars,body) VALUES ($1,$2,$3,$4,$5)
            ON CONFLICT (story_id,user_id) DO UPDATE SET stars=EXCLUDED.stars, body=EXCLUDED.body, anonymous=EXCLUDED.anonymous, created_at=now(), hidden=false`,
-    [id, req.user.id, req.body.anonymous !== false, stars, body]);
+    [id, req.user.id, anonymous, stars, body]);
+  await notify(s.rows[0].author_id, "review", anonymous ? "Anonyme" : req.user.pseudo, id, `a donné ${stars} étoile${stars > 1 ? "s" : ""} à « ${s.rows[0].title} »`);
   res.json({ ok: true });
 }));
 
@@ -260,14 +338,19 @@ app.post("/api/authors/:pseudo/follow", needUser, wrap(async (req, res) => {
   if (!a) throw new HttpError(404, "Auteur introuvable.");
   if (a.id === req.user.id) bad("Tu ne peux pas te suivre toi-même.");
   const del = await q("DELETE FROM follows WHERE follower_id=$1 AND author_id=$2", [req.user.id, a.id]);
-  if (!del.rowCount) await q("INSERT INTO follows (follower_id, author_id) VALUES ($1,$2)", [req.user.id, a.id]);
+  if (!del.rowCount) {
+    await q("INSERT INTO follows (follower_id, author_id) VALUES ($1,$2)", [req.user.id, a.id]);
+    await notify(a.id, "follow", req.user.pseudo, null, "s'est abonné·e à toi");
+  }
   res.json({ following: !del.rowCount });
 }));
 app.post("/api/posts", needUser, writeLimit, wrap(async (req, res) => {
   const body = str(req.body.body, 280);
   if (body.length < 3) bad("Écris quelque chose avant de publier.");
   if (personal(body)) bad("Pas d'infos personnelles dans les annonces.");
+  clean(body, "Ton annonce");
   await q("INSERT INTO posts (user_id, body) VALUES ($1,$2)", [req.user.id, body]);
+  await notifyFollowers(req.user.id, "post", req.user.pseudo, null, `a écrit sur son blog : « ${body.slice(0, 80)}${body.length > 80 ? "…" : ""} »`);
   res.json({ ok: true });
 }));
 app.get("/api/space", needUser, wrap(async (req, res) => {
@@ -303,6 +386,28 @@ app.post("/api/admin/reports/:id", needUser, needAdmin, wrap(async (req, res) =>
   if (!rp) throw new HttpError(404, "Signalement introuvable.");
   if (req.body.action === "hide") await q(`UPDATE ${rp.target_type === "story" ? "stories" : "reviews"} SET hidden=true WHERE id=$1`, [rp.target_id]);
   await q("UPDATE reports SET status='done' WHERE target_type=$1 AND target_id=$2", [rp.target_type, rp.target_id]);
+  res.json({ ok: true });
+}));
+
+/* ----- Notifications ----- */
+app.get("/api/notifications", needUser, wrap(async (req, res) => {
+  const r = await q("SELECT id, kind, actor, story_id, body, read, created_at FROM notifications WHERE user_id=$1 ORDER BY created_at DESC LIMIT 50", [req.user.id]);
+  res.json({ notifications: r.rows });
+}));
+app.post("/api/notifications/read", needUser, wrap(async (req, res) => {
+  await q("UPDATE notifications SET read=true WHERE user_id=$1 AND NOT read", [req.user.id]);
+  res.json({ ok: true });
+}));
+
+/* ----- Comptes adultes à valider ----- */
+app.get("/api/admin/adults", needUser, needAdmin, wrap(async (req, res) => {
+  const r = await q("SELECT id, pseudo, birth_year, created_at FROM users WHERE adult_status='pending' AND NOT is_demo ORDER BY created_at");
+  res.json({ users: r.rows });
+}));
+app.post("/api/admin/adults/:id", needUser, needAdmin, wrap(async (req, res) => {
+  const status = req.body.action === "verify" ? "verified" : "rejected";
+  await q("UPDATE users SET adult_status=$1 WHERE id=$2 AND adult_status='pending'", [status, parseInt(req.params.id, 10)]);
+  if (status === "verified") await notify(parseInt(req.params.id, 10), "adult", "Mille Plumes", null, "a validé ton compte adulte : la section Adulte t'est ouverte.");
   res.json({ ok: true });
 }));
 

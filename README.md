@@ -10,6 +10,10 @@ Plateforme d'écriture et de lecture anonyme, imaginée par Roxane.
 - `test/api.test.js` : test de bout en bout (`npm test`, avec `DATABASE_URL` vers une base de test).
 
 ## Règles de sécurité
+- Filtre de mots interdits (`lib/filter.js`) : pseudos, bios, blogs, titres partout ; textes et avis en Jeunesse.
+- Code de secours donné à l'inscription (pas d'e-mail) pour récupérer son compte.
+- Comptes 18+ validés à la main par un modérateur avant d'accéder à la section Adulte.
+- Charte, confidentialité et mentions légales dans `public/legal.js` (passages [À COMPLÉTER] à remplir).
 - Moins de 15 ans : case d'accord parental obligatoire à l'inscription.
 - Section Adulte : visible et publiable seulement par les comptes de 18 ans et plus.
 - E-mails, numéros de téléphone et comptes de réseaux sociaux bloqués dans les textes.
