@@ -1,4 +1,4 @@
-// Plume Libre : serveur API + site. Comptes par pseudo, données dans Postgres.
+// Mille Plumes : serveur API + site. Comptes par pseudo, données dans Postgres.
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
@@ -345,7 +345,7 @@ async function init() {
   }
 }
 if (require.main === module) {
-  init().then(() => app.listen(PORT, () => console.log("Plume Libre sur le port " + PORT)))
+  init().then(() => app.listen(PORT, () => console.log("Mille Plumes sur le port " + PORT)))
     .catch(e => { console.error("Démarrage impossible :", e); process.exit(1); });
 }
 module.exports = { app, init, pool };

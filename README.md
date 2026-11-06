@@ -1,4 +1,4 @@
-# Plume Libre
+# Mille Plumes
 
 Plateforme d'écriture et de lecture anonyme, imaginée par Roxane.
 

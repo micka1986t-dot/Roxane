@@ -1,4 +1,4 @@
-// Plume Libre : interface. Les données viennent du serveur (/api).
+// Mille Plumes : interface. Les données viennent du serveur (/api).
 (function(){
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -14,7 +14,7 @@ const SHAPES={none:"Aucune",circle:"Lune",arch:"Arche",diamond:"Losange",mountai
 const AI_OVERLAY="radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.25),transparent 60%),radial-gradient(ellipse at 80% 90%,rgba(0,0,0,.35),transparent 55%)";
 
 /* ---------- État ---------- */
-let state={me:null,section:store.get("section","jeunesse"),genre:"Tous",length:"tout",sort:"recent",q:"",name:store.get("name","Plume Libre"),afterLogin:null};
+let state={me:null,section:store.get("section","jeunesse"),genre:"Tous",length:"tout",sort:"recent",q:"",afterLogin:null};
 
 /* ---------- Outils ---------- */
 async function api(method,url,body){
@@ -426,22 +426,6 @@ function viewPremium(){
 }
 function bindPremium(){$("#premBtn").onclick=async()=>{if(!state.me)return needLogin("premium");try{state.me=(await api("POST","/api/premium")).me;toast(state.me.premium?"Premium activé pour le test":"Premium désactivé");render()}catch(e){toast(e.message)}}}
 
-/* ---------- Nom ---------- */
-const NAMES=[
-  {n:"Plume Libre",w:"Écrire librement, sans contrainte. Simple et clair."},
-  {n:"Pages Masquées",w:"Le côté anonyme : on écrit derrière un masque."},
-  {n:"L'Encrier",w:"Court, chaleureux, ça sonne comme un lieu où on se retrouve."},
-  {n:"Pseudonyme",w:"Le nom dit tout : ici, on est son pseudo."},
-  {n:"Mille Plumes",w:"Plein d'auteurs, plein d'histoires."},
-  {n:"Inkognito",w:"Mélange d'ink (encre) et incognito. Marche aussi en anglais."}];
-function viewName(){return`<div class="eyebrow">Pas encore de nom</div><h1 style="margin:6px 0 10px">Choisis le nom du site</h1>
-  <p class="muted" style="margin:0;max-width:60ch">Clique sur un nom pour l'essayer en haut de la page. Ce choix reste sur ton appareil.</p>
-  <div class="names">${NAMES.map(x=>`<button class="name-card" data-n="${esc(x.n)}" aria-pressed="${state.name===x.n}"><span class="n">${esc(x.n)}</span><span class="muted">${esc(x.w)}</span></button>`).join("")}</div>
-  <div class="panel row" style="margin-top:20px"><input type="text" id="ownName" maxlength="30" placeholder="Ton idée de nom" style="flex:1;min-width:0"><button class="btn primary" id="ownOk">Essayer ce nom</button></div>`}
-function bindName(){document.querySelectorAll("[data-n]").forEach(b=>b.onclick=()=>setName(b.dataset.n));$("#ownOk").onclick=()=>{const v=$("#ownName").value.trim();if(v)setName(v)}}
-function setName(n){state.name=n;store.set("name",n);applyName();render();toast("Nom essayé : "+n)}
-function applyName(){$("#siteName").textContent=state.name;document.title=state.name}
-
 /* ---------- Modération ---------- */
 async function loadModeration(){return (await api("GET","/api/admin/reports")).reports}
 function viewModeration(list){
@@ -474,7 +458,7 @@ function route(){
   const h=decodeURIComponent(location.hash.slice(1))||"explorer";
   if(h.startsWith("histoire-"))return["histoire",h.slice(9)];
   if(h.startsWith("auteur-"))return["auteur",h.slice(7)];
-  return[["explorer","ecrire","espace","premium","nom","connexion","moderation"].includes(h)?h:"explorer"];
+  return[["explorer","ecrire","espace","premium","connexion","moderation"].includes(h)?h:"explorer"];
 }
 const VIEWS={
   explorer:[loadExplorer,viewExplorer,bindExplorer],
@@ -483,7 +467,6 @@ const VIEWS={
   ecrire:[null,viewWrite,bindWrite,true],
   espace:[loadSpace,viewSpace,bindSpace,true],
   premium:[null,viewPremium,bindPremium],
-  nom:[null,viewName,bindName],
   connexion:[null,viewAuth,bindAuth],
   moderation:[loadModeration,viewModeration,bindModeration,true],
 };
@@ -508,7 +491,7 @@ async function render(){
 }
 window.addEventListener("hashchange",render);
 (async()=>{
-  syncSeg();applyName();
+  syncSeg();
   try{state.me=(await api("GET","/api/me")).me}catch(e){}
   updateNav();render();
 })();
