@@ -428,6 +428,8 @@ app.use((err, req, res, next) => {
 /* ---------- Démarrage : schéma + histoires d'exemple si la base est vide ---------- */
 async function init() {
   await q(fs.readFileSync(path.join(__dirname, "db", "schema.sql"), "utf8"));
+  // Comptes 18+ créés avant la validation par un modérateur : ils passent en attente
+  await q("UPDATE users SET adult_status='pending' WHERE adult_status='none' AND NOT is_demo AND NOT is_admin AND birth_year <= $1", [thisYear() - 18]);
   const n = await q("SELECT count(*)::int AS n FROM stories");
   if (n.rows[0].n === 0 && process.env.SEED_DEMO !== "false") {
     const { AUTHORS, SEED } = require("./db/seed-data.js");
