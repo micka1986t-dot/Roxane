@@ -1,8 +1,8 @@
-# Plume Libre sur Render : un service web Node + une base Postgres.
+# Mille Plumes sur Render : un service web Node + une base Postgres.
 # ADMIN_PSEUDOS (pseudos modérateurs) se règle à part, dans l'onglet Environment du service.
 services:
   - type: web
-    name: plume-libre
+    name: mille-plumes
     runtime: node
     region: frankfurt
     plan: free

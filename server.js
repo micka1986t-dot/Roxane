@@ -61,6 +61,13 @@ function limiter(max, windowMs) {
 /* ---------- Application ---------- */
 const app = express();
 app.set("trust proxy", 1);
+// Ancienne adresse (plume-libre.onrender.com) : renvoie vers l'adresse officielle si CANONICAL_URL est réglée.
+const CANONICAL = process.env.CANONICAL_URL ? new URL(process.env.CANONICAL_URL) : null;
+app.use((req, res, next) => {
+  if (CANONICAL && req.hostname && req.hostname !== CANONICAL.hostname && req.path !== "/healthz" && !/^(localhost|127\.|10\.)/.test(req.hostname))
+    return res.redirect(301, CANONICAL.origin + req.originalUrl);
+  next();
+});
 app.use(express.json({ limit: "300kb" }));
 app.use(cookieParser());
 const wrap = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
