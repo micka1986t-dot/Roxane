@@ -88,8 +88,8 @@ function viewExplorer(list){
   <section class="hero">
     <div>
       <div class="eyebrow">${sec==="jeunesse"?"Section Jeunesse":"Section Adulte"} · la bibliothèque gratuite</div>
-      <h1>Écris ce que tu veux.<br>Signe d'un pseudo.</h1>
-      <p>Des histoires écrites par des gens comme toi, à lire gratuitement. Fantaisie, souvenirs, romance ou n'importe quoi d'autre : ici, c'est toi qui choisis. Personne ne connaît ton vrai nom, ni celui des lecteurs.</p>
+      <h1>Écris ce que tu veux.<br>Partage-le gratuitement.</h1>
+      <p>Des histoires écrites par des gens comme toi, à lire gratuitement. Fantaisie, souvenirs, romance ou n'importe quoi d'autre : ici, c'est toi qui choisis.</p>
       <div class="row"><a class="btn primary" href="#ecrire">Commencer une histoire</a>${list.length?`<a class="btn" href="#histoire-${list[Math.floor(Math.random()*list.length)].id}">Lire au hasard</a>`:""}</div>
     </div>
     <div class="hero-shelf" aria-hidden="true">${heroBooks.map(coverHTML).join("")}</div>
@@ -131,7 +131,7 @@ function viewStory(s){
     <div class="info">
       <div class="row"><span class="tag ${s.section==="jeunesse"?"j":"a"}">${s.section==="jeunesse"?"Jeunesse":"Adulte"}</span><span class="tag">${esc(s.genre)}</span><span class="tag">${s.type==="courte"?"Histoire courte":s.chapters.length+" chapitres"}</span></div>
       <h1>${esc(s.title)}</h1>
-      <div class="author-line">${avatar(s.author,s.author_color)}<a href="#auteur-${encodeURIComponent(s.author)}">${esc(s.author)}</a>
+      <div class="author-line">${avatar(s.author,s.author_color)}<a href="#auteur-${encodeURIComponent(s.author)}">${esc(s.author)}</a>${s.author_name?`<span class="muted">${esc(s.author_name)}</span>`:""}
         ${s.mine?"":`<button class="btn small" id="followBtn">${s.following?"Abonné·e ✓":"Suivre"}</button>`}</div>
       <p style="margin:0;font-size:16px;max-width:60ch">${esc(s.summary)}</p>
       <div class="row muted" style="font-size:14px">${r.length?`<span class="stars">${starStr(s.avg)}</span> ${s.avg.toFixed(1)} sur 5 · ${r.length} avis ·`:""} ${(s.reads||0).toLocaleString("fr-FR")} lectures · publiée le ${fmtDate(s.created_at)}</div>
@@ -185,7 +185,7 @@ function bindStory(s){
   $("#ncSend")?.addEventListener("click",async()=>{
     const t=$("#ncTitle").value.trim(),b=$("#ncBody").value.trim(),err=$("#ncErr");
     if(b.split(/\s+/).length<20)return showErr(err,"Le chapitre doit faire au moins 20 mots.");
-    if(personal(t+" "+b))return showErr(err,"Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le pour rester anonyme.");
+    if(personal(t+" "+b))return showErr(err,"Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le : pas de coordonnées sur le site.");
     try{const r=await api("POST",`/api/stories/${s.id}/chapters`,{title:t,body:b});reading.ch=r.position;toast("Chapitre publié !");lastRoute="";await render();$("#lecture")?.scrollIntoView()}
     catch(e){showErr(err,e.message)}
   });
@@ -231,7 +231,7 @@ function viewAuthor(a){
   if(a.error)return`<div class="empty">${esc(a.error)}</div>`;
   return`<section class="author-head">${avatar(a.pseudo,a.color)}
     <div class="stack" style="gap:6px;min-width:0;flex:1">
-      <div class="eyebrow">Auteur·rice</div><h1>${esc(a.pseudo)}</h1>
+      <div class="eyebrow">Auteur·rice</div><h1>${esc(a.pseudo)}</h1>${a.realName?`<div class="muted" style="font-size:16px">${esc(a.realName)}</div>`:""}
       <div class="stats"><span><b>${a.followers}</b>abonnés</span><span><b>${a.stories.length}</b>histoires</span><span><b>${a.stories.reduce((x,s)=>x+(s.reads||0),0).toLocaleString("fr-FR")}</b>lectures</span></div>
     </div>
     ${a.isMe?`<a class="btn" href="#espace">Modifier mon profil</a>`:`<button class="btn ${a.following?"":"primary"}" id="followBtn">${a.following?"Abonné·e ✓":"Suivre"}</button>`}
@@ -259,7 +259,7 @@ function viewAuth(){
   return`<div class="panel stack" style="max-width:460px;margin:10px auto">
     <div class="tabs" id="authTabs"><button class="opt" data-t="signup" aria-pressed="${T==="signup"}">Créer un compte</button><button class="opt" data-t="login" aria-pressed="${T!=="signup"}">J'ai déjà un compte</button></div>
     <h2>${T==="signup"?"Ton identité d'auteur":T==="login"?"Content de te revoir":"Mot de passe oublié"}</h2>
-    ${T==="signup"?`<p class="muted" style="margin:0">Les lecteurs ne verront que ton pseudo : pas de prénom, pas de nom.</p>`:""}
+    ${T==="signup"?`<p class="muted" style="margin:0">Choisis ton pseudo : c'est le nom que verront les lecteurs.</p>`:""}
     ${T==="recover"&&state.mail?`<div class="tabs" id="recTabs"><button class="opt" data-m="email" aria-pressed="${R==="email"}">Par e-mail</button><button class="opt" data-m="code" aria-pressed="${R==="code"}">Avec mon code</button></div>`:""}
     ${T==="recover"&&R==="email"?`<p class="muted" style="margin:0">Si tu as donné un e-mail de secours, on t'y envoie un lien pour choisir un nouveau mot de passe.</p>`:""}
     ${T==="recover"&&R==="code"?`<p class="muted" style="margin:0">Utilise le code de secours qu'on t'a donné à l'inscription (il ressemble à ABCD-EFGH-JKLM).</p>`:""}
@@ -415,7 +415,7 @@ function bindWrite(){
     const err=$("#wErr"),fail=m=>{showErr(err,m);err.scrollIntoView({block:"center"})};
     if(!d.title.trim())return fail("Il manque un titre.");
     if(d.chapters.some(c=>c.body.trim().split(/\s+/).length<20))return fail("Chaque partie doit faire au moins 20 mots.");
-    if(personal(d.title+d.summary+d.chapters.map(c=>c.body).join(" ")))return fail("Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le pour rester anonyme.");
+    if(personal(d.title+d.summary+d.chapters.map(c=>c.body).join(" ")))return fail("Ton texte contient un e-mail, un numéro ou un compte de réseau social. Retire-le : pas de coordonnées sur le site.");
     const btn=$("#publish"),label=btn.textContent;btn.disabled=true;btn.textContent="Enregistrement…";
     const payload={title:d.title,summary:d.summary,section:d.section,genre:d.genre,type:d.type,cover:d.cover,chapters:d.chapters.map(c=>({title:c.t,body:c.body}))};
     try{
@@ -458,7 +458,7 @@ function viewSpace(sp){
     <div class="row"><a class="btn small" href="#auteur-${encodeURIComponent(me.pseudo)}">Voir ma page publique</a>${me.isAdmin?`<a class="btn small primary" href="#moderation">Modération</a>`:""}<button class="btn small ghost" id="logout">Me déconnecter</button></div></div></section>
   <section class="cols" style="margin-top:0">
     <div class="stack">
-      <div class="panel stack"><h3>Ma biographie</h3><textarea id="bioIn" rows="3" maxlength="300" placeholder="Parle de ce que tu aimes écrire, sans infos perso">${esc(me.bio)}</textarea><div id="bErr" class="note" hidden></div><div><button class="btn small" id="bioSave">Enregistrer</button></div></div>
+      <div class="panel stack"><h3>Mon profil</h3>${me.adult?`<div class="field"><label for="nameIn">Ton vrai nom <span class="muted">(facultatif)</span></label><input type="text" id="nameIn" maxlength="60" value="${esc(me.realName||"")}" placeholder="ex. Marie Dupont"><span class="muted" style="font-size:12px">Réservé aux comptes adultes. Il s'affiche à côté de ton pseudo, sur ta page d'auteur et tes histoires.</span></div>`:""}<textarea id="bioIn" rows="3" maxlength="300" placeholder="Parle de ce que tu aimes écrire">${esc(me.bio)}</textarea><div id="bErr" class="note" hidden></div><div><button class="btn small" id="bioSave">Enregistrer</button></div></div>
       <div class="panel stack"><h3>Écrire sur mon blog</h3><textarea id="postIn" rows="3" maxlength="280" placeholder="Annonce une suite, pose une question à tes lecteurs…"></textarea><div id="poErr" class="note" hidden></div><div><button class="btn primary small" id="postSend">Publier l'annonce</button></div>
         ${sp.posts.map(x=>`<div class="post"><time>${fmtDate(x.created_at)}</time><div>${esc(x.body)}</div></div>`).join("")}</div>
       <h2>Mes histoires</h2>
@@ -490,7 +490,8 @@ function viewSpace(sp){
 }
 function bindSpace(){
   $("#bioSave").onclick=async()=>{const v=$("#bioIn").value.trim();if(personal(v))return showErr($("#bErr"),"Retire l'e-mail, le numéro ou le compte de réseau social de ta bio.");
-    try{state.me=(await api("PATCH","/api/me",{bio:v})).me;toast("Biographie enregistrée")}catch(e){showErr($("#bErr"),e.message)}};
+    const body={bio:v};if($("#nameIn"))body.realName=$("#nameIn").value.trim();
+    try{state.me=(await api("PATCH","/api/me",body)).me;toast("Profil enregistré")}catch(e){showErr($("#bErr"),e.message)}};
   $("#postSend").onclick=async()=>{const v=$("#postIn").value.trim(),e=$("#poErr");if(v.length<3)return showErr(e,"Écris quelque chose avant de publier.");if(personal(v))return showErr(e,"Pas d'infos personnelles dans les annonces.");
     try{await api("POST","/api/posts",{body:v});toast("Annonce publiée");render()}catch(x){showErr(e,x.message)}};
   $("#pwSave").onclick=async()=>{const e=$("#pwErr");e.hidden=true;

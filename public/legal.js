@@ -4,11 +4,12 @@ window.LEGAL = {
 charte: `
 <div class="eyebrow">À lire avant de s'inscrire</div>
 <h1>La charte de Mille Plumes</h1>
-<p class="lead">Mille Plumes est une bibliothèque gratuite où chacun écrit et lit sous pseudo. Pour que tout le monde s'y sente bien, surtout les plus jeunes, voici les règles.</p>
+<p class="lead">Mille Plumes est une bibliothèque gratuite où chacun écrit et lit des histoires. Pour que tout le monde s'y sente bien, surtout les plus jeunes, voici les règles.</p>
 
-<h2>1. Reste anonyme, et protège les autres</h2>
+<h2>1. Protège ta vie privée et celle des autres</h2>
 <ul>
-<li>N'écris jamais ton vrai nom, ton adresse, ton école, ton numéro de téléphone, ton e-mail ou tes comptes de réseaux sociaux.</li>
+<li>Les lecteurs voient ton pseudo. Les comptes adultes peuvent aussi afficher leur vrai nom s'ils le souhaitent. Avant 18 ans, garde ton vrai nom pour toi.</li>
+<li>Pour tout le monde : n'écris pas ton adresse, ton école, ton numéro de téléphone, ton e-mail ou tes comptes de réseaux sociaux.</li>
 <li>Ne demande jamais ces informations à quelqu'un d'autre, et ne propose pas de continuer la discussion ailleurs.</li>
 <li>Si quelqu'un te le demande, ne réponds pas et signale-le.</li>
 </ul>
@@ -57,7 +58,7 @@ confidentialite: `
 
 <h2>Ce qu'on enregistre</h2>
 <ul>
-<li><b>Ton pseudo</b> et ton <b>mot de passe</b> (chiffré : personne, même l'équipe, ne peut le lire).</li>
+<li><b>Ton pseudo</b>, ton <b>vrai nom</b> si tu es adulte et choisis de l'afficher, et ton <b>mot de passe</b> (chiffré : personne, même l'équipe, ne peut le lire).</li>
 <li><b>Ton année de naissance</b>, jamais affichée, pour te montrer les bonnes sections. Avant 15 ans, on enregistre aussi qu'un parent a donné son accord.</li>
 <li><b>Ce que tu publies</b> : histoires, avis, annonces de blog, biographie, abonnements et signalements.</li>
 <li><b>Un code de secours</b> (chiffré) pour récupérer ton compte.</li>
@@ -92,6 +93,6 @@ Contact : <b>[À COMPLÉTER : adresse e-mail de contact]</b></p>
 <h2>Hébergeur</h2>
 <p>Render Services, Inc.<br>525 Brannan Street, Suite 300, San Francisco, CA 94107, États-Unis<br>render.com · données hébergées à Francfort (Allemagne)</p>
 <h2>Contenus</h2>
-<p>Les histoires, avis et annonces sont écrits par les membres sous pseudo et restent leur propriété. Pour signaler un contenu illicite, utilise le bouton « Signaler » ou écris à l'adresse de contact ci-dessus.</p>
+<p>Les histoires, avis et annonces sont écrits par les membres et restent leur propriété. Pour signaler un contenu illicite, utilise le bouton « Signaler » ou écris à l'adresse de contact ci-dessus.</p>
 <p class="muted">Dernière mise à jour : novembre 2026.</p>`
 };

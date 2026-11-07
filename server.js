@@ -142,7 +142,7 @@ const needAdmin = (req, res, next) => req.user?.is_admin ? next() : res.status(4
 
 const publicMe = (u, extra = {}) => u && ({ id: u.id, pseudo: u.pseudo, bio: u.bio, color: u.color, adult: isAdult(u),
   adultPending: ageOf(u) >= 18 && !isAdult(u), premium: u.premium, isAdmin: u.is_admin,
-  email: u.recovery_email ? mail.maskEmail(u.recovery_email) : null, emailVerified: u.email_verified, ...extra });
+  email: u.recovery_email ? mail.maskEmail(u.recovery_email) : null, emailVerified: u.email_verified, realName: u.real_name || "", ...extra });
 const unreadCount = async u => (await q("SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read", [u.id])).rows[0].n;
 
 /* ----- Comptes ----- */
@@ -270,7 +270,15 @@ app.patch("/api/me", needUser, wrap(async (req, res) => {
   const bio = str(req.body.bio, 300);
   if (personal(bio)) bad("Retire l'e-mail, le numéro ou le compte de réseau social de ta bio.");
   clean(bio, "Ta bio");
-  const r = await q("UPDATE users SET bio=$1 WHERE id=$2 RETURNING *", [bio, req.user.id]);
+  // Vrai nom : facultatif, réservé aux comptes adultes
+  let realName = req.user.real_name || "";
+  if (typeof req.body.realName === "string") {
+    realName = str(req.body.realName, 60).replace(/\s+/g, " ");
+    if (realName && !isAdult(req.user)) bad("Le vrai nom est réservé aux comptes adultes.");
+    if (realName && !/^[\p{L}][\p{L} '’.-]{1,59}$/u.test(realName)) bad("Ton nom : seulement des lettres, des espaces, des tirets ou des apostrophes.");
+    clean(realName, "Ce nom");
+  }
+  const r = await q("UPDATE users SET bio=$1, real_name=$2 WHERE id=$3 RETURNING *", [bio, realName, req.user.id]);
   res.json({ me: publicMe(r.rows[0]) });
 }));
 app.delete("/api/me", needUser, wrap(async (req, res) => {
@@ -285,7 +293,7 @@ app.post("/api/premium", needUser, wrap(async (req, res) => {
 
 /* ----- Histoires ----- */
 const STORY_COLS = `s.id, s.title, s.summary, s.section, s.genre, s.kind AS type, s.cover, s.reads, s.created_at,
-  u.pseudo AS author, u.color AS author_color,
+  u.pseudo AS author, u.color AS author_color, u.real_name AS author_name,
   (SELECT count(*)::int FROM chapters c WHERE c.story_id=s.id) AS chapter_count,
   (SELECT count(*)::int FROM reviews r WHERE r.story_id=s.id AND NOT r.hidden) AS review_count,
   (SELECT coalesce(avg(stars),0)::float FROM reviews r WHERE r.story_id=s.id AND NOT r.hidden) AS avg`;
@@ -433,7 +441,7 @@ app.post("/api/stories/:id/reviews", needUser, needEmail, writeLimit, wrap(async
 
 /* ----- Auteurs, abonnements, blog ----- */
 app.get("/api/authors/:pseudo", wrap(async (req, res) => {
-  const r = await q("SELECT id, pseudo, bio, color FROM users WHERE lower(pseudo)=lower($1)", [req.params.pseudo]);
+  const r = await q("SELECT id, pseudo, bio, color, real_name FROM users WHERE lower(pseudo)=lower($1) AND NOT banned", [req.params.pseudo]);
   const a = r.rows[0];
   if (!a) return res.status(404).json({ error: "Cet auteur n'existe pas." });
   const sections = isAdult(req.user) ? ["jeunesse", "adulte"] : ["jeunesse"];
@@ -443,7 +451,7 @@ app.get("/api/authors/:pseudo", wrap(async (req, res) => {
     q("SELECT count(*)::int AS n FROM follows WHERE author_id=$1", [a.id]),
     req.user ? q("SELECT 1 FROM follows WHERE follower_id=$1 AND author_id=$2", [req.user.id, a.id]) : { rows: [] },
   ]);
-  res.json({ author: { pseudo: a.pseudo, bio: a.bio, color: a.color, followers: fc.rows[0].n, following: fo.rows.length > 0, isMe: req.user?.id === a.id, stories: st.rows, posts: po.rows } });
+  res.json({ author: { pseudo: a.pseudo, realName: a.real_name, bio: a.bio, color: a.color, followers: fc.rows[0].n, following: fo.rows.length > 0, isMe: req.user?.id === a.id, stories: st.rows, posts: po.rows } });
 }));
 app.post("/api/authors/:pseudo/follow", needUser, wrap(async (req, res) => {
   const r = await q("SELECT id FROM users WHERE lower(pseudo)=lower($1)", [req.params.pseudo]);

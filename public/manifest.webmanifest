@@ -1,7 +1,7 @@
 {
   "name": "Mille Plumes",
   "short_name": "Mille Plumes",
-  "description": "Écris et lis des histoires, sous pseudo, gratuitement.",
+  "description": "Écris et lis des histoires, gratuitement.",
   "lang": "fr",
   "start_url": "./#explorer",
   "scope": "./",

@@ -122,3 +122,6 @@ CREATE TABLE IF NOT EXISTS banned_emails (
   pseudo     TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- v0.6 : vrai nom facultatif pour les comptes adultes (affiché à côté du pseudo)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS real_name TEXT NOT NULL DEFAULT '';

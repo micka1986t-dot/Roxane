@@ -48,6 +48,12 @@ const { app, init, pool } = require("../server.js");
   if (r.status !== 200) r = await call("modo", "POST", "/api/login", { pseudo: "ModoTest", password: "motdepasse3" });
   r = await call("ad", "GET", "/api/me"); assert.equal(r.body.me.adult, true, "adulte avec e-mail confirmé"); assert.equal(r.body.me.adultPending, false);
   r = await call("kid", "GET", "/api/me"); assert.equal(r.body.me.adult, false, "mineur jamais adulte, même confirmé");
+  // vrai nom facultatif, réservé aux adultes
+  r = await call("kid", "PATCH", "/api/me", { bio: "", realName: "Lucie Martin" }); assert.equal(r.status, 400, "pas de vrai nom pour un mineur");
+  r = await call("ad", "PATCH", "/api/me", { bio: "", realName: "Jean 06 12" }); assert.equal(r.status, 400, "nom invalide");
+  r = await call("ad", "PATCH", "/api/me", { bio: "", realName: "  Marie-Hélène   d'Arc " }); assert.equal(r.body.me.realName, "Marie-Hélène d'Arc");
+  r = await call("anon", "GET", `/api/authors/${adult}`); assert.equal(r.body.author.realName, "Marie-Hélène d'Arc");
+  r = await call("ad", "PATCH", "/api/me", { bio: "", realName: "" }); assert.equal(r.body.me.realName, "", "on peut le retirer");
   // code de secours
   r = await call("ad2", "POST", "/api/recover", { pseudo: adult, code: "AAAA-BBBB-CCCC", password: "nouveaumdp1" }); assert.equal(r.status, 400);
   r = await call("ad2", "POST", "/api/recover", { pseudo: adult, code: adultCode.toLowerCase().replace(/-/g, " "), password: "nouveaumdp1" });
