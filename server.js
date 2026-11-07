@@ -339,6 +339,19 @@ function cleanCover(c) {
     shape: pick(c.shape, ["none", "circle", "arch", "diamond", "mountain", "heart"], "none"),
     font: pick(c.font, ["display", "script", "hand", "royal", "typewriter", "bold"], "display"),
     ai: c.ai === true,
+    // Textes posés sur la couverture : position en % du centre, taille en % de la largeur
+    layers: (Array.isArray(c.layers) ? c.layers : []).slice(0, 8).map(l => ({
+      text: str(l && l.text, 120),
+      font: pick(l && l.font, ["display", "script", "hand", "royal", "typewriter", "bold"], "display"),
+      size: Math.min(24, Math.max(3, Number(l && l.size) || 10)),
+      color: hex(l && l.color) || "#FFFFFF",
+      x: Math.min(100, Math.max(0, Number(l && l.x) || 50)),
+      y: Math.min(100, Math.max(0, Number(l && l.y) || 50)),
+      shadow: !(l && l.shadow === false),
+      box: !!(l && l.box === true),
+      align: pick(l && l.align, ["center", "left", "right"], "center"),
+      rot: Math.round(Math.min(180, Math.max(-180, Number(l && l.rot) || 0))),
+    })).filter(l => l.text),
   };
 }
 function readStoryBody(b, user) {
@@ -358,6 +371,11 @@ function readStoryBody(b, user) {
   if (section === "jeunesse") clean(all);
   const cover = cleanCover(b.cover);
   if (cover.ai && !user.premium) cover.ai = false;
+  const coverText = cover.layers.map(l => l.text).join(" ");
+  if (coverText) {
+    if (personal(coverText)) bad("Le texte de ta couverture contient un e-mail, un numéro ou un compte de réseau social.");
+    clean(coverText, "Le texte de ta couverture");
+  }
   return { title, summary: summary || "Une nouvelle histoire.", section, type, genre: b.genre, chapters, cover };
 }
 const chapterTitle = (type, c) => c.title || (type === "courte" ? "Histoire courte" : "Chapitre " + (c.i + 1));

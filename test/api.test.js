@@ -97,6 +97,13 @@ const { app, init, pool } = require("../server.js");
   r = await call("ad", "POST", `/api/authors/${kid}/follow`); assert.equal(r.body.following, true);
   r = await call("kid", "POST", "/api/stories", { title: "Mon test", genre: "Humour", type: "courte", chapters: [{ body }] });
   assert.equal(r.status, 200); const sid = r.body.id;
+  // textes sur la couverture
+  r = await call("kid", "PUT", `/api/stories/${sid}`, { title: "Mon test", genre: "Humour", type: "courte", chapters: [{ body }], cover: { layers: [{ text: "Le titre", font: "royal", size: 99, color: "#F2C94C", x: 50, y: 150, rot: 400, align: "left", box: true }, { text: "" }] } });
+  assert.equal(r.status, 200);
+  r = await call("anon", "GET", `/api/stories/${sid}`); const L = r.body.story.cover.layers;
+  assert.equal(L.length, 1, "texte vide ignoré"); assert.equal(L[0].size, 24, "taille bornée"); assert.equal(L[0].y, 100, "position bornée"); assert.equal(L[0].font, "royal"); assert.equal(L[0].rot, 180, "rotation bornée"); assert.equal(L[0].align, "left"); assert.equal(L[0].box, true);
+  r = await call("kid", "PUT", `/api/stories/${sid}`, { title: "Mon test", genre: "Humour", type: "courte", chapters: [{ body }], cover: { layers: [{ text: "espèce de connard" }] } });
+  assert.equal(r.status, 400, "gros mot refusé sur la couverture");
   // image de couverture
   const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 1)]);
   const putCover = async (who, id, buf, type = "image/jpeg") => (await fetch(base + `/api/stories/${id}/cover`, { method: "PUT", headers: { "Content-Type": type, Cookie: jar[who] || "" }, body: buf })).status;

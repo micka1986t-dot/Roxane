@@ -6,6 +6,8 @@ const store={get(k,d){try{const v=localStorage.getItem("pl_"+k);return v?JSON.pa
 
 /* ---------- Constantes ---------- */
 const GENRES=["Fantaisie","Fantastique","Romance","Aventure","Humour","Autobiographie","Mystère","Science-fiction","Poésie"];
+const FONT_LABEL={display:"Classique",script:"Rétro",hand:"Manuscrit",royal:"Royal",typewriter:"Machine",bold:"Affiche"};
+const PALETTE=["#FFFFFF","#1D1A33","#F2C94C","#F28C38","#D3336A","#7A1E3A","#8FD3E8","#0F4C5C","#1F6E43","#F7D6E0","#EDE6D6","#000000"];
 const FONTS={display:"Gloock, serif",script:"Pacifico, cursive",hand:"Caveat, cursive",royal:"Cinzel, serif",typewriter:"'Special Elite', monospace",bold:"Bungee, sans-serif"};
 const AI_OVERLAY="radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.25),transparent 60%),radial-gradient(ellipse at 80% 90%,rgba(0,0,0,.35),transparent 55%)";
 
@@ -54,10 +56,18 @@ function shapeHTML(c){
     default:return"";
   }
 }
+// Textes posés sur la couverture (taille en % de la largeur grâce aux unités cqi)
+function layerStyle(l){return`left:${+l.x}%;top:${+l.y}%;font-size:${+l.size}cqi;font-family:${FONTS[l.font]||FONTS.display};color:${l.color};text-align:${l.align==="left"||l.align==="right"?l.align:"center"};transform:translate(-50%,-50%) rotate(${+l.rot||0}deg);${l.shadow!==false?"text-shadow:0 1px 3px rgba(0,0,0,.65),0 0 14px rgba(0,0,0,.35);":""}${l.box?"background:rgba(0,0,0,.5);padding:.12em .4em;border-radius:.15em;":""}`}
+function layersHTML(c,edit,sel){
+  return(c.layers||[]).map((l,i)=>`<div class="tl${edit&&i===sel?" sel":""}"${edit?` data-li="${i}"`:""} style="${layerStyle(l)}">${esc(l.text)}</div>`).join("")
+    +(edit?`<div class="guide gv" hidden></div><div class="guide gh" hidden></div>`:"");
+}
 function coverHTML(s){
   const img=s.coverSrc||(s.cover_v?`/api/covers/${s.id}?v=${s.cover_v}`:"");
-  if(img)return`<div class="cover has-img"><img src="${esc(img)}" alt="Couverture de ${esc(s.title||"l'histoire")}" loading="lazy"></div>`;
+  const hasL=!!(s.cover&&s.cover.layers&&s.cover.layers.length);
+  if(img)return`<div class="cover has-img"><img src="${esc(img)}" alt="Couverture de ${esc(s.title||"l'histoire")}" loading="lazy" draggable="false">${layersHTML(s.cover||{})}</div>`;
   const c=s.cover&&s.cover.bg?s.cover:{bg:"#1D1A33",pattern:"none",font:"display",text:"#fff"};
+  if(hasL)return`<div class="cover"><div class="pat" style="${patternCSS(c)}"></div>${shapeHTML(c)}${layersHTML(c)}</div>`;
   return`<div class="cover"><div class="pat" style="${patternCSS(c)}"></div>${c.ai?`<div class="pat" style="background:${AI_OVERLAY}"></div>`:""}${shapeHTML(c)}
   <div class="ct" style="font-family:${FONTS[c.font]||FONTS.display};color:${c.text}">${esc(s.title||"Titre de ton histoire")}</div>
   <div class="ca" style="color:${c.text}">${esc(s.author||"Ton pseudo")}</div></div>`;
@@ -338,23 +348,9 @@ let draft=null;
 function newDraft(){return{title:"",summary:"",section:"jeunesse",genre:"Fantaisie",type:"courte",chapters:[{t:"",body:""}],
   cover:{bg:"#3B1F5C",bg2:"#D3336A",pattern:"gradient",shape:"none",font:"display",text:"#FFFFFF"}}}
 // Image de couverture choisie (gardée en mémoire seulement, pas dans le brouillon)
-let coverPick={blob:null,url:"",remove:false};
-const resetCoverPick=(url="")=>{if(coverPick.blob&&coverPick.url)URL.revokeObjectURL(coverPick.url);coverPick={blob:null,url,remove:false}};
-// Recadre au centre en 2:3 et réduit à 800 × 1200 maximum, en JPEG
-function prepareCover(file){return new Promise((ok,ko)=>{
-  if(!/^image\//.test(file.type))return ko(new Error("Choisis un fichier image (JPG, PNG ou WebP)."));
-  if(file.size>15*1024*1024)return ko(new Error("Image trop lourde (15 Mo maximum)."));
-  const u=URL.createObjectURL(file),im=new Image();
-  im.onload=()=>{URL.revokeObjectURL(u);
-    const W=im.naturalWidth,H=im.naturalHeight;
-    if(W<400||H<600)return ko(new Error(`Image trop petite (${W} × ${H} pixels). Il faut au moins 400 × 600, idéalement 1600 × 2400.`));
-    let sw=W,sh=W*1.5;if(sh>H){sh=H;sw=H/1.5}
-    const sx=(W-sw)/2,sy=(H-sh)/2,tw=Math.min(800,Math.round(sw)),th=Math.round(tw*1.5);
-    const cv=document.createElement("canvas");cv.width=tw;cv.height=th;
-    const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,tw,th);ctx.drawImage(im,sx,sy,sw,sh,0,0,tw,th);
-    cv.toBlob(b=>b?ok({blob:b,ratioOk:Math.abs(W/H-2/3)<0.05}):ko(new Error("Cette image n'a pas pu être lue.")),"image/jpeg",0.85)};
-  im.onerror=()=>{URL.revokeObjectURL(u);ko(new Error("Cette image n'a pas pu être lue. Essaie une image JPG ou PNG."))};
-  im.src=u})}
+// src/crop : image d'origine et cadrage, pour pouvoir recadrer dans l'éditeur
+let coverPick={blob:null,url:"",remove:false,src:"",crop:null};
+const resetCoverPick=(url="")=>{if(coverPick.blob&&coverPick.url)URL.revokeObjectURL(coverPick.url);coverPick={blob:null,url,remove:false,src:"",crop:null}};
 function wc(t){const n=(t||"").trim()?t.trim().split(/\s+/).length:0;return n+" mot"+(n>1?"s":"")+(n?` · environ ${Math.max(1,Math.round(n/200))} min de lecture`:"")}
 let editing=null; // id de l'histoire en cours de modification
 async function loadEdit(id){
@@ -367,7 +363,7 @@ async function loadEdit(id){
 }
 function viewWrite(){
   if(location.hash.startsWith("#ecrire")&&editing){editing=null;draft=null;resetCoverPick()}
-  if(!draft)resetCoverPick();
+  if(!draft)resetCoverPick()
   draft=draft||store.get("draft",null)||newDraft();
   const d=draft;
   return`<div class="eyebrow">Atelier d'écriture · tu publies en tant que ${esc(state.me.pseudo)}</div>
@@ -391,19 +387,204 @@ function viewWrite(){
     </div>
     <aside class="designer panel">
       <div class="eyebrow">Ta couverture</div>
-      <div id="coverPrev">${coverPrevHTML()}</div>
-      <input type="file" id="coverFile" accept="image/jpeg,image/png,image/webp" hidden>
-      <div class="row" style="justify-content:center"><button class="btn small primary" id="coverPickBtn">${coverPick.url?"Changer l'image":"Importer une image"}</button>${coverPick.url?`<button class="btn small ghost" id="coverDel">Retirer</button>`:""}</div>
-      <div id="coverErr" class="note" hidden></div>
-      <div class="muted" style="font-size:13px;line-height:1.45">
-        <b>Format conseillé :</b> portrait, rapport 2:3 (comme un livre), idéalement <b>1600 × 2400 pixels</b>, au moins 800 × 1200. JPG, PNG ou WebP. Si l'image n'a pas ce format, elle est recadrée au centre.<br>
-        Utilise une image que tu as faite ou que tu as le droit d'utiliser, et pas de photo où l'on te reconnaît. Sans image, une couverture simple avec ton titre est créée.
-      </div>
+      <button class="cover-open" id="coverPrev" aria-label="Ouvrir l'éditeur de couverture">${coverPrevHTML()}</button>
+      <button class="btn primary" id="coverEdit" style="align-self:center">${coverPick.url||(d.cover.layers||[]).length?"Modifier la couverture":"Créer ma couverture"}</button>
+      <p class="muted" style="font-size:13px;line-height:1.45;margin:0;text-align:center">L'éditeur s'ouvre en plein écran : importe ton image, cadre-la, ajoute des textes et place-les où tu veux.</p>
     </aside>
   </div>`;
 }
 function coverPrevHTML(){return coverHTML({title:draft.title,author:state.me.pseudo,cover:draft.cover,coverSrc:coverPick.url})}
-function refreshCover(){$("#coverPrev").innerHTML=coverPrevHTML()}
+function refreshCover(){const p=$("#coverPrev");if(p)p.innerHTML=coverPrevHTML();const b=$("#coverEdit");if(b)b.textContent=coverPick.url||(draft.cover.layers||[]).length?"Modifier la couverture":"Créer ma couverture"}
+/* ---------- Éditeur de couverture plein écran ---------- */
+let ced=null; // état de l'éditeur ouvert
+const SNAP_X=[50],SNAP_Y=[8,33.33,50,66.67,92],SNAP_TH=3;
+const loadImg=src=>new Promise((ok,ko)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=()=>ko(new Error("Cette image n'a pas pu être lue. Essaie une image JPG ou PNG."));im.src=src});
+// Géométrie de l'image dans la couverture (fractions de la couverture)
+function imgGeom(m){const r=(m.W/m.H)/(2/3),w=r>=1?m.z*r:m.z,h=r>=1?m.z:m.z/r;
+  m.cx=Math.min(1-.5/w,Math.max(.5/w,m.cx));m.cy=Math.min(1-.5/h,Math.max(.5/h,m.cy));
+  return{w,h,l:.5-m.cx*w,t:.5-m.cy*h}}
+function imgZMax(m){const r=(m.W/m.H)/(2/3),w1=r>=1?r:1;return Math.max(1,Math.min(4,m.W/400/w1))}
+function imgStyle(m){const g=imgGeom(m);return`position:absolute;max-width:none;width:${g.w*100}%;height:${g.h*100}%;left:${g.l*100}%;top:${g.t*100}%`}
+function exportCrop(m){return new Promise((ok,ko)=>{const g=imgGeom(m),sw=m.W/g.w,sh=m.H/g.h,sx=m.cx*m.W-sw/2,sy=m.cy*m.H-sh/2;
+  const tw=Math.min(800,Math.round(sw)),th=Math.round(tw*1.5),cv=document.createElement("canvas");cv.width=tw;cv.height=th;
+  const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,tw,th);ctx.imageSmoothingQuality="high";ctx.drawImage(m.el,sx,sy,sw,sh,0,0,tw,th);
+  cv.toBlob(b=>b?ok(b):ko(new Error("L'image n'a pas pu être préparée.")),"image/jpeg",0.85)})}
+function cedCoverHTML(){
+  const c=ced.cover,m=ced.img,hasL=c.layers.length;
+  const inner=m?`<img src="${esc(m.url)}" alt="" draggable="false" style="${imgStyle(m)}">`
+    :`<div class="pat" style="${patternCSS(c)}"></div>${shapeHTML(c)}${hasL?"":`<div class="ct" style="font-family:${FONTS[c.font]||FONTS.display};color:${c.text}">${esc(draft.title||"Titre de ton histoire")}</div><div class="ca" style="color:${c.text}">${esc(state.me.pseudo)}</div>`}`;
+  return`<div class="cover editing${m?" has-img":""}" id="cedCv">${inner}${layersHTML(c,true,ced.sel)}</div>`;
+}
+function cedSnap(){return JSON.stringify({cover:ced.cover,img:ced.img?{url:ced.img.url,W:ced.img.W,H:ced.img.H,z:ced.img.z,cx:ced.img.cx,cy:ced.img.cy}:null})}
+function cedCommit(){const s=cedSnap();if(s===ced.hist[ced.hi])return;ced.hist=ced.hist.slice(0,ced.hi+1);ced.hist.push(s);if(ced.hist.length>60)ced.hist.shift();ced.hi=ced.hist.length-1;cedTop()}
+function cedRestore(i){ced.hi=i;const s=JSON.parse(ced.hist[i]);ced.cover=s.cover;ced.img=s.img?{...s.img,el:ced.els[s.img.url]}:null;
+  if(ced.sel!=null&&!ced.cover.layers[ced.sel])ced.sel=null;cedDraw();cedPanel();cedTop()}
+function cedTop(){$("#cedUndo").disabled=ced.hi<=0;$("#cedRedo").disabled=ced.hi>=ced.hist.length-1}
+function cedDraw(){$("#cedStage").innerHTML=cedCoverHTML()}
+function cedPaintLayer(i){const el=$(`#cedCv .tl[data-li="${i}"]`),l=ced.cover.layers[i];if(el&&l)el.style.cssText=layerStyle(l)}
+function cedSelect(i){ced.sel=i;document.querySelectorAll("#cedCv .tl").forEach(x=>x.classList.toggle("sel",+x.dataset.li===i));if(i!=null)ced.tab="textes";cedPanel()}
+async function openCoverEditor(){
+  if($("#ced"))return;
+  const cover=JSON.parse(JSON.stringify(draft.cover||{}));cover.layers=cover.layers||[];
+  let img=null;const src=coverPick.src||coverPick.url;
+  if(src){try{const el=await loadImg(src);img={url:src,el,W:el.naturalWidth,H:el.naturalHeight,...(coverPick.src&&coverPick.crop?coverPick.crop:{z:1,cx:.5,cy:.5})}}catch{}}
+  ced={cover,img,els:{},sel:null,tab:img||cover.layers.length?"textes":"image",hist:[],hi:-1,snap:true,init:null};
+  if(img)ced.els[img.url]=img.el;
+  ced.init=img?JSON.stringify([img.url,img.z,img.cx,img.cy]):"";
+  const box=document.createElement("div");box.id="ced";box.className="ced";box.setAttribute("role","dialog");box.setAttribute("aria-modal","true");box.setAttribute("aria-label","Éditeur de couverture");
+  box.innerHTML=`<header class="ced-top"><button class="btn small ghost" id="cedCancel">Annuler</button><div class="ttl">Couverture</div>
+    <button class="btn small ghost ico" id="cedUndo" aria-label="Annuler la dernière action" title="Annuler (Ctrl+Z)">↶</button><button class="btn small ghost ico" id="cedRedo" aria-label="Rétablir" title="Rétablir (Ctrl+Maj+Z)">↷</button>
+    <button class="btn small primary" id="cedDone">Terminé</button></header>
+    <div class="ced-main"><div class="ced-stage" id="cedStage"></div><div class="ced-panel" id="cedPanel"></div></div>
+    <input type="file" id="cedFile" accept="image/jpeg,image/png,image/webp" hidden>`;
+  document.body.appendChild(box);document.documentElement.classList.add("noscroll");
+  cedDraw();cedPanel();cedCommit();cedBindStage();
+  $("#cedCancel").onclick=cedCancel;
+  $("#cedUndo").onclick=()=>{if(ced.hi>0)cedRestore(ced.hi-1)};
+  $("#cedRedo").onclick=()=>{if(ced.hi<ced.hist.length-1)cedRestore(ced.hi+1)};
+  $("#cedDone").onclick=cedDone;
+  $("#cedFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(f)await cedImport(f)};
+  document.addEventListener("keydown",cedKeys);window.addEventListener("hashchange",closeCoverEditor);
+}
+function cedCancel(){if(ced&&ced.hi>0&&!confirm("Abandonner les changements de ta couverture ?"))return;closeCoverEditor()}
+function closeCoverEditor(){const b=$("#ced");if(b)b.remove();document.documentElement.classList.remove("noscroll");
+  document.removeEventListener("keydown",cedKeys);window.removeEventListener("hashchange",closeCoverEditor);ced=null}
+async function cedDone(){
+  const btn=$("#cedDone");btn.disabled=true;
+  try{
+    draft.cover=ced.cover;const m=ced.img;
+    if(m){if(JSON.stringify([m.url,m.z,m.cx,m.cy])!==ced.init){const blob=await exportCrop(m);
+        if(coverPick.blob&&coverPick.url&&coverPick.url!==m.url)URL.revokeObjectURL(coverPick.url);
+        coverPick={blob,url:URL.createObjectURL(blob),remove:false,src:m.url,crop:{z:m.z,cx:m.cx,cy:m.cy}}}}
+    else if(coverPick.url){resetCoverPick();coverPick.remove=true}
+    closeCoverEditor();refreshCover();
+  }catch(e){btn.disabled=false;cedErr(e.message)}
+}
+function cedErr(msg){const e=$("#cedErr");if(e)showErr(e,msg);else toast(msg)}
+async function cedImport(f){
+  try{
+    if(!/^image\//.test(f.type))throw new Error("Choisis un fichier image (JPG, PNG ou WebP).");
+    if(f.size>15*1024*1024)throw new Error("Image trop lourde (15 Mo maximum).");
+    const url=URL.createObjectURL(f),el=await loadImg(url),W=el.naturalWidth,H=el.naturalHeight;
+    if(Math.min(W,H/1.5)<400){URL.revokeObjectURL(url);throw new Error(`Image trop petite (${W} × ${H} pixels). Il faut au moins 400 × 600, idéalement 1600 × 2400.`)}
+    ced.els[url]=el;ced.img={url,el,W,H,z:1,cx:.5,cy:.5};ced.sel=null;ced.tab="image";cedDraw();cedPanel();cedCommit();
+    if(Math.abs(W/H-2/3)>0.05)toast("Fais glisser l'image pour choisir le cadrage");
+  }catch(x){ced.tab="image";cedPanel();cedErr(x.message)}
+}
+function cedAddLayer(){const L=ced.cover.layers,n=L.length;if(n>=8)return;
+  L.push(n===0?{text:draft.title||"Ton titre",font:"display",size:12,color:"#FFFFFF",x:50,y:16,shadow:true,box:false,align:"center",rot:0}
+    :n===1?{text:state.me.pseudo,font:"display",size:6,color:"#FFFFFF",x:50,y:90,shadow:true,box:false,align:"center",rot:0}
+    :{text:"Ton texte",font:"hand",size:8,color:"#FFFFFF",x:50,y:50,shadow:true,box:false,align:"center",rot:0});
+  ced.sel=L.length-1;ced.tab="textes";cedDraw();cedPanel();cedCommit();const t=$("#lText");if(t){t.focus();t.select()}}
+function cedPanel(){
+  const p=$("#cedPanel"),L=ced.cover.layers,l=L[ced.sel],c=ced.cover,m=ced.img;
+  const tabs=`<div class="tabs" id="cedTabs"><button class="opt" data-tab="textes" aria-pressed="${ced.tab==="textes"}">Textes</button><button class="opt" data-tab="image" aria-pressed="${ced.tab==="image"}">${m?"Image":"Image et fond"}</button></div>`;
+  let body="";
+  if(ced.tab==="image"){
+    body=m?`<div class="row" style="gap:8px"><button class="btn small" id="cedPick">Changer l'image</button><button class="btn small ghost" id="cedRm">Retirer l'image</button></div>
+      <label class="field"><span class="lab">Zoom</span><input type="range" id="cedZoom" min="1" max="${imgZMax(m).toFixed(2)}" step="0.01" value="${m.z}"></label>
+      <div class="row" style="gap:8px"><button class="btn small ghost" id="cedFit">Recentrer</button></div>
+      <p class="muted small">Fais glisser l'image pour la cadrer. Zoome avec le curseur, la molette ou deux doigts.</p>`
+    :`<button class="btn primary" id="cedPick">Importer une image</button>
+      <p class="muted small"><b>Format conseillé :</b> portrait, rapport 2:3 (comme un livre), idéalement <b>1600 × 2400 pixels</b>, au moins 800 × 1200. JPG, PNG ou WebP. Tu pourras ensuite la cadrer.<br>Utilise une image que tu as faite ou que tu as le droit d'utiliser, et pas de photo où l'on te reconnaît.</p>
+      <div class="eyebrow">Ou un fond simple</div>
+      <div class="opt-row" id="cedPat">${[["none","Uni"],["gradient","Dégradé"],["dots","Pois"],["stripes","Rayures"],["stars","Étoiles"],["waves","Vagues"]].map(([k,v])=>`<button class="opt" data-v="${k}" aria-pressed="${c.pattern===k}">${v}</button>`).join("")}</div>
+      <span class="lab">Couleur principale</span><div class="swatches" data-col="bg">${PALETTE.map(col=>`<button class="sw" style="background:${col}" data-v="${col}" aria-label="Couleur ${col}" aria-pressed="${c.bg===col}"></button>`).join("")}</div>
+      ${c.pattern!=="none"?`<span class="lab">Deuxième couleur</span><div class="swatches" data-col="bg2">${PALETTE.map(col=>`<button class="sw" style="background:${col}" data-v="${col}" aria-label="Couleur ${col}" aria-pressed="${c.bg2===col}"></button>`).join("")}</div>`:""}`;
+  }else{
+    body=`<div class="row" style="justify-content:space-between;gap:10px"><button class="btn small primary" id="cedAdd" ${L.length>=8?"disabled":""}>+ Ajouter un texte</button>
+      <label class="check" title="Les textes se collent au centre et aux repères"><input type="checkbox" id="cedSnapOn" ${ced.snap?"checked":""}> <span>Aimant</span></label></div>
+      ${L.length?`<div class="opt-row" id="cedLayers">${L.map((x,i)=>`<button class="opt" data-li="${i}" aria-pressed="${i===ced.sel}">${esc(x.text.length>16?x.text.slice(0,15)+"…":x.text||"(vide)")}</button>`).join("")}</div>`:`<p class="muted small">Ajoute ton titre, ton pseudo ou une phrase, puis fais-les glisser sur la couverture.</p>`}
+      ${l?`<div class="layer-ed stack">
+        <textarea id="lText" rows="2" maxlength="120" placeholder="Ton texte">${esc(l.text)}</textarea>
+        <div class="opt-row" id="lFont">${Object.entries(FONT_LABEL).map(([k,v])=>`<button class="opt" data-v="${k}" aria-pressed="${l.font===k}" style="font-family:${FONTS[k]}">${v}</button>`).join("")}</div>
+        <label class="field"><span class="lab">Taille</span><input type="range" id="lSize" min="3" max="24" step="0.5" value="${l.size}"></label>
+        <label class="field"><span class="lab">Rotation <span id="lRotV">${l.rot||0}°</span></span><input type="range" id="lRot" min="-180" max="180" step="1" value="${l.rot||0}"></label>
+        <div class="opt-row" id="lAlign">${[["left","À gauche"],["center","Centré"],["right","À droite"]].map(([k,v])=>`<button class="opt" data-v="${k}" aria-pressed="${(l.align||"center")===k}">${v}</button>`).join("")}</div>
+        <div class="swatches" id="lColor">${PALETTE.map(col=>`<button class="sw" style="background:${col}" data-v="${col}" aria-label="Couleur ${col}" aria-pressed="${l.color===col}"></button>`).join("")}<label class="sw sw-pick" title="Autre couleur"><input type="color" id="lColorPick" value="${l.color}" aria-label="Autre couleur"></label></div>
+        <div class="row" style="gap:16px"><label class="check"><input type="checkbox" id="lShadow" ${l.shadow!==false?"checked":""}> <span>Ombre</span></label><label class="check"><input type="checkbox" id="lBox" ${l.box?"checked":""}> <span>Bandeau</span></label></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn small ghost" id="lDup" ${L.length>=8?"disabled":""}>Dupliquer</button><button class="btn small ghost" id="lUp">Devant</button><button class="btn small ghost" id="lDown">Derrière</button><button class="btn small ghost" id="lDel">Supprimer</button></div>
+      </div>`:L.length?`<p class="muted small">Touche un texte pour le modifier, fais-le glisser pour le déplacer. Deux doigts pour l'agrandir.</p>`:""}`;
+  }
+  p.innerHTML=tabs+body+`<div id="cedErr" class="note" hidden></div>`;
+  $("#cedTabs").onclick=e=>{const b=e.target.closest("[data-tab]");if(b){ced.tab=b.dataset.tab;cedPanel()}};
+  $("#cedPick")?.addEventListener("click",()=>$("#cedFile").click());
+  if(ced.tab==="image"){
+    $("#cedRm")?.addEventListener("click",()=>{ced.img=null;cedDraw();cedPanel();cedCommit()});
+    const z=$("#cedZoom");if(z){z.oninput=()=>{m.z=+z.value;const i=$("#cedCv img");if(i)i.style.cssText=imgStyle(m)};z.onchange=cedCommit}
+    $("#cedFit")?.addEventListener("click",()=>{Object.assign(m,{z:1,cx:.5,cy:.5});cedDraw();cedPanel();cedCommit()});
+    $("#cedPat")?.addEventListener("click",e=>{const b=e.target.closest("[data-v]");if(!b)return;c.pattern=b.dataset.v;cedDraw();cedPanel();cedCommit()});
+    p.querySelectorAll("[data-col]").forEach(s=>s.onclick=e=>{const b=e.target.closest("[data-v]");if(!b)return;c[s.dataset.col]=b.dataset.v;cedDraw();cedPanel();cedCommit()});
+    return;
+  }
+  $("#cedAdd").onclick=cedAddLayer;
+  $("#cedSnapOn").onchange=e=>ced.snap=e.target.checked;
+  $("#cedLayers")?.addEventListener("click",e=>{const b=e.target.closest("[data-li]");if(b)cedSelect(+b.dataset.li)});
+  if(!l)return;
+  const live=()=>cedPaintLayer(ced.sel),set=(k,v,full)=>{l[k]=v;if(full){cedDraw();cedPanel()}else live();cedCommit()};
+  $("#lText").oninput=e=>{l.text=e.target.value;const el=$(`#cedCv .tl[data-li="${ced.sel}"]`);if(el)el.textContent=l.text;const ch=$(`#cedLayers [data-li="${ced.sel}"]`);if(ch)ch.textContent=l.text.length>16?l.text.slice(0,15)+"…":l.text||"(vide)"};
+  $("#lText").onchange=cedCommit;
+  $("#lFont").onclick=e=>{const b=e.target.closest("[data-v]");if(b)set("font",b.dataset.v,true)};
+  $("#lSize").oninput=e=>{l.size=+e.target.value;live()};$("#lSize").onchange=cedCommit;
+  $("#lRot").oninput=e=>{let v=+e.target.value;if(Math.abs(v)<4)v=0;l.rot=v;$("#lRotV").textContent=v+"°";live()};$("#lRot").onchange=cedCommit;
+  $("#lAlign").onclick=e=>{const b=e.target.closest("[data-v]");if(b)set("align",b.dataset.v,true)};
+  $("#lColor").onclick=e=>{const b=e.target.closest("button[data-v]");if(b)set("color",b.dataset.v,true)};
+  $("#lColorPick").oninput=e=>{l.color=e.target.value.toUpperCase();live()};$("#lColorPick").onchange=()=>{cedPanel();cedCommit()};
+  $("#lShadow").onchange=e=>set("shadow",e.target.checked);
+  $("#lBox").onchange=e=>set("box",e.target.checked);
+  $("#lDup").onclick=()=>{if(L.length>=8)return;L.push({...l,x:Math.min(100,l.x+4),y:Math.min(100,l.y+4)});ced.sel=L.length-1;cedDraw();cedPanel();cedCommit()};
+  $("#lUp").onclick=()=>{const i=ced.sel;if(i<L.length-1){[L[i],L[i+1]]=[L[i+1],L[i]];ced.sel=i+1;cedDraw();cedPanel();cedCommit()}};
+  $("#lDown").onclick=()=>{const i=ced.sel;if(i>0){[L[i],L[i-1]]=[L[i-1],L[i]];ced.sel=i-1;cedDraw();cedPanel();cedCommit()}};
+  $("#lDel").onclick=()=>{L.splice(ced.sel,1);ced.sel=null;cedDraw();cedPanel();cedCommit()};
+}
+// Glisser un texte (avec aimant facultatif) ou l'image ; pincer pour agrandir ; molette pour zoomer
+function cedBindStage(){
+  const st=$("#cedStage"),pts=new Map();let act=null,wheelT=null;
+  const guides=(gx,gy)=>{const cv=$("#cedCv");if(!cv)return;const gv=cv.querySelector(".gv"),gh=cv.querySelector(".gh");
+    gv.hidden=gx==null;if(gx!=null)gv.style.left=gx+"%";gh.hidden=gy==null;if(gy!=null)gh.style.top=gy+"%"};
+  const dist=()=>{const [a,b]=[...pts.values()];return Math.hypot(a.x-b.x,a.y-b.y)||1};
+  st.addEventListener("pointerdown",e=>{
+    const cv=$("#cedCv");if(!cv)return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});st.setPointerCapture(e.pointerId);
+    if(pts.size===2&&act){const l=ced.cover.layers[ced.sel];act={kind:"pinch",d0:dist(),l:act.kind==="text"?l:null,s0:act.kind==="text"?l.size:0,z0:ced.img?ced.img.z:1,moved:false};guides(null,null);return}
+    if(pts.size>1)return;
+    const r=cv.getBoundingClientRect(),t=e.target.closest(".tl");
+    if(t){e.preventDefault();const i=+t.dataset.li,l=ced.cover.layers[i];if(ced.sel!==i)cedSelect(i);
+      act={kind:"text",i,l,r,dx:(e.clientX-r.left)/r.width*100-l.x,dy:(e.clientY-r.top)/r.height*100-l.y,moved:false};return}
+    if(ced.sel!=null)cedSelect(null);
+    if(ced.img&&e.target.closest("#cedCv")){act={kind:"pan",r,x0:e.clientX,y0:e.clientY,cx:ced.img.cx,cy:ced.img.cy,moved:false}}
+  });
+  st.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});if(!act)return;
+    if(act.kind==="pinch"){if(pts.size<2)return;const k=dist()/act.d0;act.moved=true;
+      if(act.l){act.l.size=Math.round(Math.min(24,Math.max(3,act.s0*k))*2)/2;cedPaintLayer(ced.sel);const s=$("#lSize");if(s)s.value=act.l.size}
+      else if(ced.img){const m=ced.img;m.z=Math.min(imgZMax(m),Math.max(1,act.z0*k));const i=$("#cedCv img");if(i)i.style.cssText=imgStyle(m);const z=$("#cedZoom");if(z)z.value=m.z}
+      return}
+    if(act.kind==="text"){let x=(e.clientX-act.r.left)/act.r.width*100-act.dx,y=(e.clientY-act.r.top)/act.r.height*100-act.dy;
+      x=Math.min(100,Math.max(0,x));y=Math.min(100,Math.max(0,y));let gx=null,gy=null;
+      if(ced.snap){const sx=SNAP_X.find(v=>Math.abs(x-v)<SNAP_TH),sy=SNAP_Y.find(v=>Math.abs(y-v)<SNAP_TH);if(sx!=null)x=gx=sx;if(sy!=null)y=gy=sy}
+      act.moved=true;act.l.x=Math.round(x*10)/10;act.l.y=Math.round(y*10)/10;cedPaintLayer(act.i);guides(gx,gy);return}
+    if(act.kind==="pan"){const m=ced.img,g=imgGeom(m);act.moved=true;
+      m.cx=act.cx-(e.clientX-act.x0)/(act.r.width*g.w);m.cy=act.cy-(e.clientY-act.y0)/(act.r.height*g.h);
+      const i=$("#cedCv img");if(i)i.style.cssText=imgStyle(m)}
+  });
+  const end=e=>{pts.delete(e.pointerId);if(!act)return;if(pts.size&&act.kind==="pinch")return;
+    if(act.moved)cedCommit();act=null;guides(null,null)};
+  st.addEventListener("pointerup",end);st.addEventListener("pointercancel",end);
+  st.addEventListener("wheel",e=>{if(!$("#cedCv"))return;e.preventDefault();const k=Math.exp(-e.deltaY*0.0015),l=ced.cover.layers[ced.sel];
+    if(l){l.size=Math.round(Math.min(24,Math.max(3,l.size*k))*2)/2;cedPaintLayer(ced.sel);const s=$("#lSize");if(s)s.value=l.size}
+    else if(ced.img){const m=ced.img;m.z=Math.min(imgZMax(m),Math.max(1,m.z*k));const i=$("#cedCv img");if(i)i.style.cssText=imgStyle(m);const z=$("#cedZoom");if(z)z.value=m.z}
+    else return;
+    clearTimeout(wheelT);wheelT=setTimeout(cedCommit,400)},{passive:false});
+}
+function cedKeys(e){
+  if(!ced)return;const tag=(e.target.tagName||"").toLowerCase(),typing=tag==="textarea"||(tag==="input"&&e.target.type==="text");
+  if(e.key==="Escape"){e.preventDefault();cedCancel();return}
+  if((e.ctrlKey||e.metaKey)&&!typing&&(e.key==="z"||e.key==="Z"||e.key==="y")){e.preventDefault();
+    if(e.key==="y"||e.shiftKey){if(ced.hi<ced.hist.length-1)cedRestore(ced.hi+1)}else if(ced.hi>0)cedRestore(ced.hi-1);return}
+  const l=ced.cover.layers[ced.sel];if(!l||typing||tag==="input")return;
+  const st=e.shiftKey?2:.5,mv={ArrowLeft:[-st,0],ArrowRight:[st,0],ArrowUp:[0,-st],ArrowDown:[0,st]}[e.key];
+  if(mv){e.preventDefault();l.x=Math.min(100,Math.max(0,Math.round((l.x+mv[0])*10)/10));l.y=Math.min(100,Math.max(0,Math.round((l.y+mv[1])*10)/10));cedPaintLayer(ced.sel);cedCommit();return}
+  if(e.key==="Delete"||e.key==="Backspace"){e.preventDefault();ced.cover.layers.splice(ced.sel,1);ced.sel=null;cedDraw();cedPanel();cedCommit()}
+}
 function bindWrite(){
   const d=draft;
   $("#wTitle").oninput=e=>{d.title=e.target.value;refreshCover()};
@@ -416,11 +597,7 @@ function bindWrite(){
     if(t.dataset.cb!=null){d.chapters[+t.dataset.cb].body=t.value;$(`[data-wc="${t.dataset.cb}"]`).textContent=wc(t.value)}});
   $("#chapEdits").addEventListener("click",e=>{const b=e.target.closest("[data-del]");if(!b)return;d.chapters.splice(+b.dataset.del,1);render()});
   $("#addCh")?.addEventListener("click",()=>{d.chapters.push({t:"",body:""});render()});
-  $("#coverPickBtn").onclick=()=>$("#coverFile").click();
-  $("#coverFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const ce=$("#coverErr");ce.hidden=true;
-    try{const r=await prepareCover(f);resetCoverPick(URL.createObjectURL(r.blob));coverPick.blob=r.blob;render();
-      if(!r.ratioOk)toast("Image recadrée au format 2:3")}catch(x){showErr(ce,x.message)}};
-  $("#coverDel")?.addEventListener("click",()=>{resetCoverPick();coverPick.remove=true;render()});
+  $("#coverPrev").onclick=openCoverEditor;$("#coverEdit").onclick=openCoverEditor;
   $("#saveDraft")?.addEventListener("click",()=>{store.set("draft",d);toast("Brouillon gardé sur cet appareil")});
   $("#resetDraft")?.addEventListener("click",()=>{draft=newDraft();store.set("draft",null);render()});
   $("#publish").onclick=async()=>{
