@@ -103,3 +103,22 @@ CREATE TABLE IF NOT EXISTS password_resets (
   expires_at TIMESTAMPTZ NOT NULL,
   used       BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+-- v0.5 : e-mail obligatoire (jamais montré aux lecteurs), confirmation, bannissement
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banned BOOLEAN NOT NULL DEFAULT FALSE;
+-- doublons éventuels d'avant l'index : on garde l'e-mail sur le compte le plus ancien
+UPDATE users u SET recovery_email = NULL WHERE recovery_email IS NOT NULL
+  AND EXISTS (SELECT 1 FROM users v WHERE lower(v.recovery_email) = lower(u.recovery_email) AND v.id < u.id);
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower ON users (lower(recovery_email)) WHERE recovery_email IS NOT NULL;
+CREATE TABLE IF NOT EXISTS email_checks (
+  token_hash TEXT PRIMARY KEY,
+  user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email      TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE TABLE IF NOT EXISTS banned_emails (
+  email      TEXT PRIMARY KEY,
+  pseudo     TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

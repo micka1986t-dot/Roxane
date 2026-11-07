@@ -88,16 +88,61 @@ app.use(wrap(async (req, res, next) => {
       const { uid } = jwt.verify(t, SECRET);
       const r = await q("SELECT * FROM users WHERE id=$1", [uid]);
       req.user = r.rows[0] || null;
+      if (req.user?.banned) { req.user = null; res.clearCookie(COOKIE); }
     } catch { res.clearCookie(COOKIE); }
   }
   next();
 }));
 const needUser = (req, res, next) => req.user ? next() : res.status(401).json({ error: "Connecte-toi d'abord." });
+// Publier (histoires, avis, blog) : e-mail obligatoire, et confirmé quand l'envoi d'e-mails fonctionne
+const needEmail = (req, res, next) => {
+  if (!req.user.recovery_email) return res.status(403).json({ error: "Ajoute ton e-mail dans Mon espace pour pouvoir publier." });
+  if (mail.enabled && !req.user.email_verified) return res.status(403).json({ error: "Confirme ton e-mail (clique sur le lien reçu) pour pouvoir publier. Tu peux renvoyer le lien depuis Mon espace." });
+  next();
+};
+const sha = t => crypto.createHash("sha256").update(t).digest("hex");
+const siteUrl = req => process.env.CANONICAL_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get("host")}`;
+const emailBanned = async e => (await q("SELECT 1 FROM banned_emails WHERE email=$1", [mail.canonEmail(e)])).rowCount > 0;
+// Vérifie un e-mail saisi : format, bannissement, déjà utilisé par un autre compte
+async function checkEmail(raw, userId = 0) {
+  const email = str(raw, 120).toLowerCase();
+  if (!email) bad("L'e-mail est obligatoire. Il n'est jamais montré aux lecteurs.");
+  if (!mail.validEmail(email)) bad("Cette adresse e-mail n'a pas l'air valide.");
+  if (await emailBanned(email)) bad("Cet e-mail ne peut plus être utilisé sur Mille Plumes.");
+  if ((await q("SELECT 1 FROM users WHERE lower(recovery_email)=$1 AND id<>$2", [email, userId])).rowCount) bad("Cet e-mail est déjà utilisé par un autre compte.");
+  return email;
+}
+// Envoie le lien de confirmation (n'échoue jamais : l'erreur est seulement notée)
+async function sendCheck(req, u, email) {
+  if (!mail.enabled) return false;
+  const token = crypto.randomBytes(24).toString("base64url");
+  await q("DELETE FROM email_checks WHERE user_id=$1 OR expires_at < now()", [u.id]);
+  await q("INSERT INTO email_checks (token_hash,user_id,email,expires_at) VALUES ($1,$2,$3,now() + interval '3 days')", [sha(token), u.id, email]);
+  try {
+    await mail.sendMail(email, "Mille Plumes : confirme ton e-mail",
+      `Bonjour ${u.pseudo},\n\nPour confirmer ton e-mail sur Mille Plumes, ouvre ce lien (valable 3 jours) :\n${siteUrl(req)}/#verifier-${token}\n\nTon e-mail n'est jamais montré aux lecteurs : ils ne voient que ton pseudo.\nSi tu n'as pas créé de compte, ignore cet e-mail.\n\nMille Plumes`);
+    return true;
+  } catch (e) { console.error("verif", e.message); return false; }
+}
+async function banUser(id, by) {
+  const u = (await q("SELECT * FROM users WHERE id=$1", [id])).rows[0];
+  if (!u) throw new HttpError(404, "Compte introuvable.");
+  if (u.is_admin || u.is_demo) bad("Ce compte ne peut pas être banni.");
+  await q("UPDATE users SET banned=true WHERE id=$1", [id]);
+  if (u.recovery_email) await q("INSERT INTO banned_emails (email,pseudo) VALUES ($1,$2) ON CONFLICT DO NOTHING", [mail.canonEmail(u.recovery_email), u.pseudo]);
+  await q("UPDATE stories SET hidden=true WHERE author_id=$1", [id]);
+  await q("UPDATE reviews SET hidden=true WHERE user_id=$1", [id]);
+  await q("DELETE FROM posts WHERE user_id=$1", [id]);
+  await q(`UPDATE reports SET status='done' WHERE (target_type='story' AND target_id IN (SELECT id FROM stories WHERE author_id=$1))
+    OR (target_type='review' AND target_id IN (SELECT id FROM reviews WHERE user_id=$1))`, [id]);
+  console.log(`Compte ${u.pseudo} banni par ${by}`);
+  return u;
+}
 const needAdmin = (req, res, next) => req.user?.is_admin ? next() : res.status(403).json({ error: "Réservé à la modération." });
 
 const publicMe = (u, extra = {}) => u && ({ id: u.id, pseudo: u.pseudo, bio: u.bio, color: u.color, adult: isAdult(u),
   adultPending: ageOf(u) >= 18 && !isAdult(u) && u.adult_status === "pending", premium: u.premium, isAdmin: u.is_admin,
-  email: u.recovery_email ? mail.maskEmail(u.recovery_email) : null, ...extra });
+  email: u.recovery_email ? mail.maskEmail(u.recovery_email) : null, emailVerified: u.email_verified, ...extra });
 const unreadCount = async u => (await q("SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read", [u.id])).rows[0].n;
 
 /* ----- Comptes ----- */
@@ -113,9 +158,9 @@ app.post("/api/signup", authLimit, wrap(async (req, res) => {
   if (password.length < 8) bad("Le mot de passe doit faire au moins 8 caractères.");
   if (!(birthYear >= thisYear() - 100 && birthYear <= thisYear() - 10)) bad("Il faut avoir au moins 10 ans pour s'inscrire.");
   const age = thisYear() - birthYear;
-  const email = str(req.body.email, 120).toLowerCase() || null;
-  if (email && !mail.validEmail(email)) bad("Cette adresse e-mail n'a pas l'air valide.");
   if (age < 15 && req.body.parentOk !== true) bad("Avant 15 ans, un parent doit être d'accord. Coche la case avec lui ou elle.");
+  if ((await q("SELECT 1 FROM users WHERE lower(pseudo)=lower($1)", [pseudo])).rowCount) bad("Ce pseudo est déjà pris. Essaie une variante.");
+  const email = await checkEmail(req.body.email);
   const hash = await bcrypt.hash(password, 10);
   const color = COLORS[crypto.randomInt(COLORS.length)];
   const admin = ADMINS.includes(pseudo.toLowerCase());
@@ -125,9 +170,10 @@ app.post("/api/signup", authLimit, wrap(async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,now(),$8,$9) RETURNING *`,
       [pseudo, hash, birthYear, color, age < 15, admin, await bcrypt.hash(normCode(code), 10), age >= 18 ? (admin ? "verified" : "pending") : "none", email]);
     setSession(res, r.rows[0]);
-    res.json({ me: publicMe(r.rows[0], { unread: 0 }), recoveryCode: code });
+    const sent = await sendCheck(req, r.rows[0], email);
+    res.json({ me: publicMe(r.rows[0], { unread: 0 }), recoveryCode: code, checkSent: sent });
   } catch (e) {
-    if (e.code === "23505") bad("Ce pseudo est déjà pris. Essaie une variante.");
+    if (e.code === "23505") bad(/email/.test(e.constraint || "") ? "Cet e-mail est déjà utilisé par un autre compte." : "Ce pseudo est déjà pris. Essaie une variante.");
     throw e;
   }
 }));
@@ -135,6 +181,7 @@ app.post("/api/login", authLimit, wrap(async (req, res) => {
   const r = await q("SELECT * FROM users WHERE lower(pseudo)=lower($1) AND NOT is_demo", [str(req.body.pseudo, 24)]);
   const u = r.rows[0];
   if (!u || !(await bcrypt.compare(String(req.body.password || ""), u.password_hash))) bad("Pseudo ou mot de passe incorrect.");
+  if (u.banned) throw new HttpError(403, "Ce compte a été banni parce qu'il ne respectait pas la charte de Mille Plumes.");
   if (ADMINS.includes(u.pseudo.toLowerCase()) && !u.is_admin) { await q("UPDATE users SET is_admin=true WHERE id=$1", [u.id]); u.is_admin = true; }
   setSession(res, u);
   res.json({ me: publicMe(u, { unread: await unreadCount(u) }) });
@@ -143,7 +190,7 @@ app.post("/api/login", authLimit, wrap(async (req, res) => {
 app.post("/api/recover", authLimit, wrap(async (req, res) => {
   const r = await q("SELECT * FROM users WHERE lower(pseudo)=lower($1) AND NOT is_demo", [str(req.body.pseudo, 24)]);
   const u = r.rows[0], password = String(req.body.password || "");
-  if (!u || !u.recovery_hash || !(await bcrypt.compare(normCode(req.body.code), u.recovery_hash))) bad("Pseudo ou code de secours incorrect.");
+  if (!u || u.banned || !u.recovery_hash || !(await bcrypt.compare(normCode(req.body.code), u.recovery_hash))) bad("Pseudo ou code de secours incorrect.");
   if (password.length < 8) bad("Le nouveau mot de passe doit faire au moins 8 caractères.");
   const code = newRecoveryCode();
   const up = await q("UPDATE users SET password_hash=$1, recovery_hash=$2 WHERE id=$3 RETURNING *", [await bcrypt.hash(password, 10), await bcrypt.hash(normCode(code), 10), u.id]);
@@ -166,21 +213,33 @@ app.post("/api/me/recovery-code", needUser, authLimit, wrap(async (req, res) => 
 // E-mail de secours : ajouter, changer ou retirer (mot de passe demandé)
 app.post("/api/me/email", needUser, authLimit, wrap(async (req, res) => {
   if (!(await bcrypt.compare(String(req.body.currentPassword || ""), req.user.password_hash))) bad("Ton mot de passe n'est pas le bon.");
-  const email = str(req.body.email, 120).toLowerCase() || null;
-  if (email && !mail.validEmail(email)) bad("Cette adresse e-mail n'a pas l'air valide.");
-  const r = await q("UPDATE users SET recovery_email=$1 WHERE id=$2 RETURNING *", [email, req.user.id]);
-  res.json({ me: publicMe(r.rows[0], { unread: await unreadCount(req.user) }) });
+  const email = await checkEmail(req.body.email, req.user.id);
+  const r = await q("UPDATE users SET recovery_email=$1, email_verified = (email_verified AND lower(coalesce(recovery_email,''))=$1) WHERE id=$2 RETURNING *", [email, req.user.id]);
+  const sent = r.rows[0].email_verified ? false : await sendCheck(req, r.rows[0], email);
+  res.json({ me: publicMe(r.rows[0], { unread: await unreadCount(req.user) }), checkSent: sent });
+}));
+app.post("/api/me/email/resend", needUser, limiter(5, 15 * 60 * 1000), wrap(async (req, res) => {
+  if (!req.user.recovery_email) bad("Ajoute d'abord ton e-mail.");
+  if (req.user.email_verified) return res.json({ checkSent: false });
+  res.json({ checkSent: await sendCheck(req, req.user, req.user.recovery_email) });
+}));
+app.post("/api/verify-email", limiter(20, 15 * 60 * 1000), wrap(async (req, res) => {
+  const t = (await q("SELECT * FROM email_checks WHERE token_hash=$1 AND expires_at > now()", [sha(String(req.body.token || ""))])).rows[0];
+  if (!t) bad("Ce lien n'est plus valable. Renvoie un lien depuis Mon espace.");
+  const r = await q("UPDATE users SET email_verified=true WHERE id=$1 AND lower(recovery_email)=$2 RETURNING *", [t.user_id, t.email]);
+  await q("DELETE FROM email_checks WHERE token_hash=$1", [t.token_hash]);
+  if (!r.rows[0]) bad("Ce lien correspond à un ancien e-mail. Renvoie un lien depuis Mon espace.");
+  res.json({ ok: true, me: req.user?.id === t.user_id ? publicMe(r.rows[0], { unread: await unreadCount(r.rows[0]) }) : undefined });
 }));
 // Mot de passe oublié par e-mail : lien valable 1 heure. Réponse identique que l'e-mail existe ou non.
-const sha = t => crypto.createHash("sha256").update(t).digest("hex");
 app.post("/api/recover-email", limiter(5, 15 * 60 * 1000), wrap(async (req, res) => {
   const r = await q("SELECT * FROM users WHERE lower(pseudo)=lower($1) AND NOT is_demo", [str(req.body.pseudo, 24)]);
   const u = r.rows[0];
-  if (u && u.recovery_email) {
+  if (u && u.recovery_email && !u.banned) {
     const token = crypto.randomBytes(24).toString("base64url");
     await q("DELETE FROM password_resets WHERE user_id=$1 OR expires_at < now()", [u.id]);
     await q("INSERT INTO password_resets (token_hash,user_id,expires_at) VALUES ($1,$2,now() + interval '1 hour')", [sha(token), u.id]);
-    const base = process.env.CANONICAL_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get("host")}`;
+    const base = siteUrl(req);
     try { await mail.sendMail(u.recovery_email, "Mille Plumes : choisir un nouveau mot de passe",
       `Bonjour ${u.pseudo},\n\nQuelqu'un (sans doute toi) a demandé à changer le mot de passe de ce compte Mille Plumes.\n\nPour choisir un nouveau mot de passe, ouvre ce lien (valable 1 heure) :\n${base}/#reinit-${token}\n\nSi ce n'est pas toi, ignore simplement cet e-mail : rien ne change.\n\nMille Plumes`); }
     catch (e) { console.error("recover-email", e.message); }
@@ -193,11 +252,18 @@ app.post("/api/reset", authLimit, wrap(async (req, res) => {
   if (!t.rows[0]) bad("Ce lien n'est plus valable. Redemande un e-mail.");
   if (password.length < 8) bad("Le nouveau mot de passe doit faire au moins 8 caractères.");
   await q("UPDATE password_resets SET used=true WHERE token_hash=$1", [t.rows[0].token_hash]);
-  const up = await q("UPDATE users SET password_hash=$1 WHERE id=$2 RETURNING *", [await bcrypt.hash(password, 10), t.rows[0].user_id]);
+  // cliquer sur le lien prouve aussi que l'e-mail est le bon
+  const up = await q("UPDATE users SET password_hash=$1, email_verified=true WHERE id=$2 AND NOT banned RETURNING *", [await bcrypt.hash(password, 10), t.rows[0].user_id]);
+  if (!up.rows[0]) bad("Ce compte n'est plus actif.");
   setSession(res, up.rows[0]);
   res.json({ me: publicMe(up.rows[0], { unread: await unreadCount(up.rows[0]) }) });
 }));
 app.get("/api/config", (req, res) => res.json({ mail: mail.enabled }));
+app.post("/api/admin/users/:pseudo/ban", needUser, needAdmin, wrap(async (req, res) => {
+  const u = (await q("SELECT id FROM users WHERE lower(pseudo)=lower($1)", [str(req.params.pseudo, 24)])).rows[0];
+  if (!u) throw new HttpError(404, "Compte introuvable.");
+  await banUser(u.id, req.user.pseudo); res.json({ ok: true });
+}));
 app.post("/api/logout", (req, res) => { res.clearCookie(COOKIE); res.json({ ok: true }); });
 app.get("/api/me", wrap(async (req, res) => res.json({ me: req.user ? publicMe(req.user, { unread: await unreadCount(req.user) }) : null })));
 app.patch("/api/me", needUser, wrap(async (req, res) => {
@@ -297,7 +363,7 @@ async function tx(fn) {
   try { await client.query("BEGIN"); const r = await fn(client); await client.query("COMMIT"); return r; }
   catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
 }
-app.post("/api/stories", needUser, writeLimit, wrap(async (req, res) => {
+app.post("/api/stories", needUser, needEmail, writeLimit, wrap(async (req, res) => {
   const d = readStoryBody(req.body, req.user);
   const id = await tx(async c => {
     const s = await c.query(`INSERT INTO stories (author_id,title,summary,section,genre,kind,cover) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
@@ -310,7 +376,7 @@ app.post("/api/stories", needUser, writeLimit, wrap(async (req, res) => {
   res.json({ id });
 }));
 // Modifier une histoire : remplace titre, résumé, couverture et chapitres (avis et lectures conservés)
-app.put("/api/stories/:id", needUser, writeLimit, wrap(async (req, res) => {
+app.put("/api/stories/:id", needUser, needEmail, writeLimit, wrap(async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const old = await q("SELECT * FROM stories WHERE id=$1 AND author_id=$2", [id, req.user.id]);
   if (!old.rows[0]) throw new HttpError(404, "Histoire introuvable.");
@@ -327,7 +393,7 @@ app.put("/api/stories/:id", needUser, writeLimit, wrap(async (req, res) => {
     await notifyFollowers(req.user.id, "chapter", req.user.pseudo, id, `a publié un nouveau chapitre de « ${d.title} »`);
   res.json({ id });
 }));
-app.post("/api/stories/:id/chapters", needUser, writeLimit, wrap(async (req, res) => {
+app.post("/api/stories/:id/chapters", needUser, needEmail, writeLimit, wrap(async (req, res) => {
   const id = parseInt(req.params.id, 10), title = str(req.body.title, 80), body = str(req.body.body, 60000);
   const s = await q("SELECT kind, section, title FROM stories WHERE id=$1 AND author_id=$2", [id, req.user.id]);
   if (!s.rows[0]) throw new HttpError(404, "Histoire introuvable.");
@@ -347,7 +413,7 @@ app.delete("/api/stories/:id", needUser, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-app.post("/api/stories/:id/reviews", needUser, writeLimit, wrap(async (req, res) => {
+app.post("/api/stories/:id/reviews", needUser, needEmail, writeLimit, wrap(async (req, res) => {
   const id = parseInt(req.params.id, 10), stars = parseInt(req.body.stars, 10), body = str(req.body.body, 400);
   if (!(stars >= 1 && stars <= 5)) bad("Choisis une note de 1 à 5 étoiles.");
   if (body.length < 5) bad("Écris au moins quelques mots pour expliquer ta note.");
@@ -391,7 +457,7 @@ app.post("/api/authors/:pseudo/follow", needUser, wrap(async (req, res) => {
   }
   res.json({ following: !del.rowCount });
 }));
-app.post("/api/posts", needUser, writeLimit, wrap(async (req, res) => {
+app.post("/api/posts", needUser, needEmail, writeLimit, wrap(async (req, res) => {
   const body = str(req.body.body, 280);
   if (body.length < 3) bad("Écris quelque chose avant de publier.");
   if (personal(body)) bad("Pas d'infos personnelles dans les annonces.");
@@ -423,7 +489,8 @@ app.get("/api/admin/reports", needUser, needAdmin, wrap(async (req, res) => {
   const r = await q(`SELECT rp.*, CASE WHEN rp.target_type='story' THEN (SELECT title FROM stories WHERE id=rp.target_id)
     ELSE (SELECT body FROM reviews WHERE id=rp.target_id) END AS excerpt,
     CASE WHEN rp.target_type='story' THEN (SELECT hidden FROM stories WHERE id=rp.target_id) ELSE (SELECT hidden FROM reviews WHERE id=rp.target_id) END AS hidden,
-    CASE WHEN rp.target_type='story' THEN rp.target_id ELSE (SELECT story_id FROM reviews WHERE id=rp.target_id) END AS story_id
+    CASE WHEN rp.target_type='story' THEN rp.target_id ELSE (SELECT story_id FROM reviews WHERE id=rp.target_id) END AS story_id,
+    (SELECT pseudo FROM users WHERE id = CASE WHEN rp.target_type='story' THEN (SELECT author_id FROM stories WHERE id=rp.target_id) ELSE (SELECT user_id FROM reviews WHERE id=rp.target_id) END) AS author
     FROM reports rp WHERE status='open' ORDER BY created_at DESC LIMIT 100`);
   res.json({ reports: r.rows });
 }));
@@ -431,6 +498,12 @@ app.post("/api/admin/reports/:id", needUser, needAdmin, wrap(async (req, res) =>
   const r = await q("SELECT * FROM reports WHERE id=$1", [parseInt(req.params.id, 10)]);
   const rp = r.rows[0];
   if (!rp) throw new HttpError(404, "Signalement introuvable.");
+  if (req.body.action === "ban") {
+    const owner = (await q(rp.target_type === "story" ? "SELECT author_id AS id FROM stories WHERE id=$1" : "SELECT user_id AS id FROM reviews WHERE id=$1", [rp.target_id])).rows[0];
+    if (!owner) bad("Le contenu n'existe plus.");
+    const u = await banUser(owner.id, req.user.pseudo);
+    return res.json({ ok: true, pseudo: u.pseudo });
+  }
   if (req.body.action === "hide") await q(`UPDATE ${rp.target_type === "story" ? "stories" : "reviews"} SET hidden=true WHERE id=$1`, [rp.target_id]);
   await q("UPDATE reports SET status='done' WHERE target_type=$1 AND target_id=$2", [rp.target_type, rp.target_id]);
   res.json({ ok: true });
@@ -448,7 +521,7 @@ app.post("/api/notifications/read", needUser, wrap(async (req, res) => {
 
 /* ----- Comptes adultes à valider ----- */
 app.get("/api/admin/adults", needUser, needAdmin, wrap(async (req, res) => {
-  const r = await q("SELECT id, pseudo, birth_year, created_at FROM users WHERE adult_status='pending' AND NOT is_demo ORDER BY created_at");
+  const r = await q("SELECT id, pseudo, birth_year, created_at FROM users WHERE adult_status='pending' AND NOT is_demo AND NOT banned ORDER BY created_at");
   res.json({ users: r.rows });
 }));
 app.post("/api/admin/adults/:id", needUser, needAdmin, wrap(async (req, res) => {

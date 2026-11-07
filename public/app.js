@@ -259,7 +259,7 @@ function viewAuth(){
   return`<div class="panel stack" style="max-width:460px;margin:10px auto">
     <div class="tabs" id="authTabs"><button class="opt" data-t="signup" aria-pressed="${T==="signup"}">Créer un compte</button><button class="opt" data-t="login" aria-pressed="${T!=="signup"}">J'ai déjà un compte</button></div>
     <h2>${T==="signup"?"Ton identité d'auteur":T==="login"?"Content de te revoir":"Mot de passe oublié"}</h2>
-    ${T==="signup"?`<p class="muted" style="margin:0">Ici, pas de prénom, pas de nom. Juste un pseudo qui te ressemble.</p>`:""}
+    ${T==="signup"?`<p class="muted" style="margin:0">Les lecteurs ne verront que ton pseudo : pas de prénom, pas de nom.</p>`:""}
     ${T==="recover"&&state.mail?`<div class="tabs" id="recTabs"><button class="opt" data-m="email" aria-pressed="${R==="email"}">Par e-mail</button><button class="opt" data-m="code" aria-pressed="${R==="code"}">Avec mon code</button></div>`:""}
     ${T==="recover"&&R==="email"?`<p class="muted" style="margin:0">Si tu as donné un e-mail de secours, on t'y envoie un lien pour choisir un nouveau mot de passe.</p>`:""}
     ${T==="recover"&&R==="code"?`<p class="muted" style="margin:0">Utilise le code de secours qu'on t'a donné à l'inscription (il ressemble à ABCD-EFGH-JKLM).</p>`:""}
@@ -271,8 +271,8 @@ function viewAuth(){
       ${T==="signup"?`
       <div class="field"><label for="aYear">Année de naissance</label><select id="aYear"><option value="">Choisis</option>${Array.from({length:91},(_,i)=>y-10-i).map(v=>`<option>${v}</option>`).join("")}</select>
         <span class="muted" style="font-size:12px">Elle n'est jamais affichée. Elle sert à te montrer les bonnes sections.</span></div>
-      <div class="field"><label for="aEmail">E-mail de secours <span class="muted">(facultatif, conseillé)</span></label><input type="email" id="aEmail" maxlength="120" autocomplete="email" placeholder="ex. adresse@exemple.fr">
-        <span class="muted" style="font-size:12px">Jamais affiché ni partagé. Il sert seulement si tu oublies ton mot de passe. Moins de 15 ans : mets celui d'un parent.</span></div>
+      <div class="field"><label for="aEmail">E-mail</label><input type="email" id="aEmail" maxlength="120" autocomplete="email" placeholder="ex. adresse@exemple.fr" required>
+        <span class="muted" style="font-size:12px">Jamais montré aux lecteurs ni aux autres membres. Il sert à récupérer ton compte et à la modération. Moins de 15 ans : mets celui d'un parent.</span></div>
       <label class="check" id="parentRow" hidden><input type="checkbox" id="aParent"> <span>J'ai moins de 15 ans et un parent est d'accord pour que je crée ce compte.</span></label>
       <label class="check"><input type="checkbox" id="aTerms"> <span>J'ai lu et j'accepte <a href="#charte" target="_blank">la charte de Mille Plumes</a> et <a href="#confidentialite" target="_blank">la politique de confidentialité</a>.</span></label>`:""}
       <div id="aErr" class="note" hidden></div>
@@ -283,7 +283,7 @@ function viewAuth(){
 }
 function showRecoveryCode(code,next){
   modal(`<div class="eyebrow">À garder précieusement</div><h2>Ton code de secours</h2>
-    <p style="margin:0">Ce code te permet de récupérer ton compte si tu oublies ton mot de passe${state.me&&state.me.email?" (en plus de ton e-mail de secours)":", et c'est le seul moyen si tu n'as pas mis d'e-mail de secours"}. Télécharge-le, note-le sur papier ou fais une capture d'écran.</p>
+    <p style="margin:0">Ce code te permet de récupérer ton compte si tu oublies ton mot de passe et que tu n'as plus accès à ton e-mail. Télécharge-le, note-le sur papier ou fais une capture d'écran.</p>
     <div class="code-box" id="codeBox">${esc(code)}</div>
     <div class="row"><button class="btn small" id="copyCode">Copier</button><button class="btn small" id="dlCode">Télécharger</button><span class="muted" style="font-size:13px">On ne pourra plus te le montrer.</span></div>
     <label class="check"><input type="checkbox" id="codeOk"> <span>J'ai bien noté mon code.</span></label>
@@ -312,13 +312,14 @@ function bindAuth(){
     const body={pseudo:$("#aPseudo").value.trim(),password:$("#aPass").value};
     if(T==="signup"){body.birthYear=$("#aYear").value;body.parentOk=$("#aParent").checked;body.acceptTerms=$("#aTerms").checked;body.email=$("#aEmail").value.trim();
       if(!body.birthYear)return showErr(err,"Choisis ton année de naissance.");
+      if(!body.email)return showErr(err,"L'e-mail est obligatoire. Il n'est jamais montré aux lecteurs.");
       if(!body.acceptTerms)return showErr(err,"Lis et accepte la charte pour créer ton compte.")}
     if(T==="recover")body.code=$("#aCode").value;
     try{
       const r=await api("POST",{signup:"/api/signup",login:"/api/login",recover:"/api/recover"}[T],body);
       state.me=r.me;updateNav();
       const n=state.afterLogin||"explorer";state.afterLogin=null;
-      const done=()=>{toast(T==="login"?"Re-bonjour, "+r.me.pseudo:T==="recover"?"Mot de passe changé":"Bienvenue, "+r.me.pseudo);authTab="login";go(n)};
+      const done=()=>{toast(T==="login"?"Re-bonjour, "+r.me.pseudo:T==="recover"?"Mot de passe changé":r.checkSent?"Bienvenue ! Clique sur le lien reçu par e-mail pour confirmer ton adresse.":"Bienvenue, "+r.me.pseudo);authTab="login";go(n)};
       if(r.recoveryCode)showRecoveryCode(r.recoveryCode,done);else done();
     }catch(e){showErr(err,e.message)}
   };
@@ -329,6 +330,10 @@ function viewReinit(){return`<div class="panel stack" style="max-width:460px;mar
   <form id="riForm" class="stack" novalidate>${passInput("riPass","new-password","Nouveau mot de passe")}<div id="riErr" class="note" hidden></div><button class="btn primary" type="submit">Enregistrer</button></form></div>`}
 function bindReinit(token){$("#riForm").onsubmit=async e=>{e.preventDefault();
   try{const r=await api("POST","/api/reset",{token,password:$("#riPass").value});state.me=r.me;updateNav();toast("Mot de passe changé");go("espace")}catch(x){showErr($("#riErr"),x.message)}}}
+
+/* ---------- Confirmation de l'e-mail (lien reçu) ---------- */
+async function loadVerify(token){try{const r=await api("POST","/api/verify-email",{token});if(r.me){state.me=r.me;updateNav()}return{ok:true}}catch(e){return{ok:false,msg:e.message}}}
+function viewVerify(d){return`<div class="panel stack" style="max-width:460px;margin:10px auto;text-align:center">${d.ok?`<h2>E-mail confirmé ✓</h2><p style="margin:0">Tu peux maintenant publier tes histoires, tes avis et ton blog.</p><div><a class="btn primary" href="#ecrire">Écrire une histoire</a></div>`:`<h2>Lien expiré</h2><p style="margin:0">${esc(d.msg)}</p><div><a class="btn" href="#espace">Mon espace</a></div>`}</div>`}
 
 /* ---------- Atelier d'écriture ---------- */
 let draft=null;
@@ -473,11 +478,10 @@ function viewSpace(sp){
         <div id="pwErr" class="note" hidden></div>
         <div class="row"><button class="btn small primary" id="pwSave">Changer mon mot de passe</button><button class="btn small" id="newCode">Nouveau code de secours</button></div>
         <p class="muted" style="margin:0;font-size:12px">Le nouveau code de secours remplace l'ancien. Il faut ton mot de passe actuel.</p>
-        <div class="field"><label for="emIn">E-mail de secours ${me.email?`<span class="muted">(actuel : ${esc(me.email)})</span>`:""}</label><input type="email" id="emIn" maxlength="120" autocomplete="email" placeholder="${me.email?"Nouvel e-mail, ou laisse vide pour le retirer":"adresse@exemple.fr"}"></div>
-        ${me.email?"":`<div class="note">Sans e-mail de secours, si tu perds ton mot de passe et ton code, ton compte et tes histoires sont perdus.</div>`}
+        <div class="field"><label for="emIn">E-mail ${me.email?`<span class="muted">(actuel : ${esc(me.email)}${state.mail?(me.emailVerified?" · confirmé":" · pas encore confirmé"):""})</span>`:""}</label><input type="email" id="emIn" maxlength="120" autocomplete="email" placeholder="${me.email?"Nouvel e-mail":"adresse@exemple.fr"}"></div>
         <div id="emErr" class="note" hidden></div>
-        <div class="row"><button class="btn small" id="emSave">${me.email?"Changer l'e-mail":"Ajouter cet e-mail"}</button>${me.email?`<button class="btn small ghost" id="emDel">Retirer l'e-mail</button>`:""}</div>
-        <p class="muted" style="margin:0;font-size:12px">Il faut aussi ton mot de passe actuel (champ du haut). L'e-mail n'est jamais affiché.</p>
+        <div class="row"><button class="btn small" id="emSave">${me.email?"Changer l'e-mail":"Ajouter cet e-mail"}</button>${me.email&&state.mail&&!me.emailVerified?`<button class="btn small ghost" id="emResend">Renvoyer le lien de confirmation</button>`:""}</div>
+        <p class="muted" style="margin:0;font-size:12px">Il faut aussi ton mot de passe actuel (champ du haut). Ton e-mail n'est jamais montré aux lecteurs.</p>
       </div>
       <div class="panel stack"><h3>Mon compte</h3><p class="muted" style="margin:0;font-size:14px">Supprimer ton compte efface aussi tes histoires, tes avis et ton blog.</p><div><button class="btn small ghost" id="delMe">Supprimer mon compte</button></div>
         <p class="muted" style="margin:0;font-size:12px"><a href="#charte">Charte</a> · <a href="#confidentialite">Confidentialité</a> · <a href="#mentions">Mentions légales</a></p></div>
@@ -491,10 +495,9 @@ function bindSpace(){
     try{await api("POST","/api/posts",{body:v});toast("Annonce publiée");render()}catch(x){showErr(e,x.message)}};
   $("#pwSave").onclick=async()=>{const e=$("#pwErr");e.hidden=true;
     try{await api("POST","/api/me/password",{currentPassword:$("#curPass").value,newPassword:$("#newPass").value});$("#curPass").value=$("#newPass").value="";toast("Mot de passe changé")}catch(x){showErr(e,x.message)}};
-  const saveEmail=async email=>{const e=$("#emErr");e.hidden=true;
-    try{state.me=(await api("POST","/api/me/email",{email,currentPassword:$("#curPass").value})).me;toast(email?"E-mail de secours enregistré":"E-mail de secours retiré");render()}catch(x){showErr(e,x.message)}};
-  $("#emSave").onclick=()=>{const v=$("#emIn").value.trim();if(!v)return showErr($("#emErr"),"Écris une adresse e-mail.");saveEmail(v)};
-  $("#emDel")?.addEventListener("click",()=>saveEmail(""));
+  $("#emSave").onclick=async()=>{const v=$("#emIn").value.trim(),e=$("#emErr");e.hidden=true;if(!v)return showErr(e,"Écris une adresse e-mail.");
+    try{const r=await api("POST","/api/me/email",{email:v,currentPassword:$("#curPass").value});state.me=r.me;updateNav();toast(r.checkSent?"E-mail enregistré : clique sur le lien reçu pour le confirmer":"E-mail enregistré");render()}catch(x){showErr(e,x.message)}};
+  $("#emResend")?.addEventListener("click",async()=>{try{const r=await api("POST","/api/me/email/resend");toast(r.checkSent?"Lien envoyé : regarde aussi dans les spams":"L'e-mail n'a pas pu partir, réessaie plus tard")}catch(x){toast(x.message)}});
   $("#newCode").onclick=async()=>{const e=$("#pwErr");e.hidden=true;
     try{const r=await api("POST","/api/me/recovery-code",{currentPassword:$("#curPass").value});$("#curPass").value="";showRecoveryCode(r.recoveryCode)}catch(x){showErr(e,x.message)}};
   $("#logout").onclick=async()=>{await api("POST","/api/logout").catch(()=>{});state.me=null;updateNav();toast("Tu es déconnecté·e");go("explorer")};
@@ -529,9 +532,10 @@ function viewModeration(d){
   ${list.length?`<div class="stack">${list.map(r=>`<div class="panel stack" style="gap:8px">
     <div class="row" style="justify-content:space-between"><span class="tag ${r.target_type==="story"?"a":""}">${r.target_type==="story"?"Histoire":"Avis"}</span><span class="muted" style="font-size:13px">${fmtDate(r.created_at)}</span></div>
     <b>${esc(r.reason)}</b><div class="muted">${esc((r.excerpt||"(supprimé)").slice(0,200))}</div>
-    <div class="row">${r.story_id?`<a class="btn small" href="#histoire-${r.story_id}">Voir</a>`:""}<button class="btn small primary" data-act="hide" data-id="${r.id}">Masquer le contenu</button><button class="btn small ghost" data-act="ok" data-id="${r.id}">Rien à signaler</button></div></div>`).join("")}</div>`:`<div class="empty">Aucun signalement en attente.</div>`}`;
+    <div class="row">${r.story_id?`<a class="btn small" href="#histoire-${r.story_id}">Voir</a>`:""}<button class="btn small primary" data-act="hide" data-id="${r.id}">Masquer le contenu</button><button class="btn small ghost" data-act="ok" data-id="${r.id}">Rien à signaler</button>${r.author?`<button class="btn small ghost" data-ban="${r.id}" data-who="${esc(r.author)}">Bannir ${esc(r.author)}</button>`:""}</div></div>`).join("")}</div>`:`<div class="empty">Aucun signalement en attente.</div>`}`;
 }
-function bindModeration(){document.querySelectorAll("[data-adult]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/adults/"+b.dataset.id,{action:b.dataset.adult});toast(b.dataset.adult==="verify"?"Compte adulte validé":"Demande refusée");render()}catch(e){toast(e.message)}});document.querySelectorAll("[data-act]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/reports/"+b.dataset.id,{action:b.dataset.act});toast(b.dataset.act==="hide"?"Contenu masqué":"Signalement classé");render()}catch(e){toast(e.message)}})}
+function bindModeration(){document.querySelectorAll("[data-ban]").forEach(b=>b.onclick=()=>modal(`<h3>Bannir ${esc(b.dataset.who)} ?</h3><p style="margin:0">Son compte sera fermé, toutes ses histoires et tous ses avis seront masqués, et son e-mail ne pourra plus servir à créer un compte. À réserver aux problèmes graves ou répétés.</p>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Annuler</button><button class="btn primary" id="banOk">Bannir</button></div>`,m=>{$("#banOk",m).onclick=async()=>{try{await api("POST","/api/admin/reports/"+b.dataset.ban,{action:"ban"});closeModal();toast(b.dataset.who+" est banni·e");render()}catch(e){closeModal();toast(e.message)}}}));document.querySelectorAll("[data-adult]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/adults/"+b.dataset.id,{action:b.dataset.adult});toast(b.dataset.adult==="verify"?"Compte adulte validé":"Demande refusée");render()}catch(e){toast(e.message)}});document.querySelectorAll("[data-act]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/reports/"+b.dataset.id,{action:b.dataset.act});toast(b.dataset.act==="hide"?"Contenu masqué":"Signalement classé");render()}catch(e){toast(e.message)}})}
 
 /* ---------- Notifications ---------- */
 async function loadNotifs(){const r=await api("GET","/api/notifications");if(state.me?.unread){api("POST","/api/notifications/read").catch(()=>{});state.me.unread=0;updateNav()}return r.notifications}
@@ -570,6 +574,7 @@ function route(){
   if(h.startsWith("auteur-"))return["auteur",h.slice(7)];
   if(h.startsWith("modifier-"))return["modifier",h.slice(9)];
   if(h.startsWith("reinit-"))return["reinit",h.slice(7)];
+  if(h.startsWith("verifier-"))return["verifier",h.slice(9)];
   if(["charte","confidentialite","mentions"].includes(h))return["legal",h];
   return[["explorer","ecrire","espace","premium","connexion","moderation","notifications"].includes(h)?h:"explorer"];
 }
@@ -586,6 +591,7 @@ const VIEWS={
   notifications:[loadNotifs,viewNotifs,()=>{},true],
   legal:[null,viewLegal,()=>{}],
   reinit:[null,viewReinit,bindReinit],
+  verifier:[loadVerify,viewVerify,()=>{}],
 };
 let lastRoute="",renderId=0;
 async function render(){
@@ -604,7 +610,9 @@ async function render(){
   }
   if(id!==renderId)return;
   if(r==="histoire")lastStory=data;
-  app.innerHTML=view(r==="legal"?arg:data);bind(data);bindReports();
+  const me=state.me,needMail=me&&r!=="verifier"&&(!me.email||(state.mail&&!me.emailVerified));
+  const banner=needMail?`<div class="note" style="margin-bottom:16px">${!me.email?`Ajoute ton e-mail dans <a href="#espace">Mon espace</a> pour pouvoir publier. Il n'est jamais montré aux lecteurs.`:`Confirme ton e-mail pour pouvoir publier : clique sur le lien qu'on t'a envoyé (regarde aussi dans les spams). Tu peux le renvoyer depuis <a href="#espace">Mon espace</a>.`}</div>`:"";
+  app.innerHTML=banner+view(r==="legal"?arg:data);bind(data);bindReports();
   if(changed)window.scrollTo(0,0);
 }
 window.addEventListener("hashchange",render);

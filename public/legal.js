@@ -37,7 +37,7 @@ charte: `
 <h2>5. Signalements et sanctions</h2>
 <ul>
 <li>Chaque histoire et chaque avis a un bouton « Signaler ». Un modérateur regarde chaque signalement.</li>
-<li>Un contenu qui ne respecte pas la charte est masqué. En cas de problème grave ou répété, le compte peut être supprimé.</li>
+<li>Un contenu qui ne respecte pas la charte est masqué. En cas de problème grave ou répété, le compte est banni : ses textes sont retirés et son e-mail ne peut plus servir à créer un compte.</li>
 <li>Les contenus illégaux peuvent être transmis aux autorités.</li>
 </ul>
 
@@ -53,7 +53,7 @@ charte: `
 confidentialite: `
 <div class="eyebrow">Tes données</div>
 <h1>Politique de confidentialité</h1>
-<p class="lead">Mille Plumes collecte le moins de données possible. Pas de nom, pas de photo, pas de publicité, pas de revente. L'e-mail est facultatif.</p>
+<p class="lead">Mille Plumes collecte le moins de données possible. Pas de nom, pas de photo, pas de publicité, pas de revente. Ton e-mail n'est jamais montré aux lecteurs.</p>
 
 <h2>Ce qu'on enregistre</h2>
 <ul>
@@ -61,7 +61,7 @@ confidentialite: `
 <li><b>Ton année de naissance</b>, jamais affichée, pour te montrer les bonnes sections. Avant 15 ans, on enregistre aussi qu'un parent a donné son accord.</li>
 <li><b>Ce que tu publies</b> : histoires, avis, annonces de blog, biographie, abonnements et signalements.</li>
 <li><b>Un code de secours</b> (chiffré) pour récupérer ton compte.</li>
-<li><b>Un e-mail de secours</b>, seulement si tu en donnes un. Il n'est jamais affiché ni partagé, et ne sert qu'à t'envoyer un lien si tu oublies ton mot de passe. Tu peux le retirer à tout moment dans Mon espace. Ces e-mails sont envoyés par le service Brevo (France).</li>
+<li><b>Ton e-mail</b> (celui d'un parent avant 15 ans). Il n'est jamais montré aux lecteurs ni aux autres membres, ni vendu. Il sert à confirmer ton compte, à t'envoyer un lien si tu oublies ton mot de passe, et à la modération : un compte banni ne peut pas être recréé avec le même e-mail. Tu peux le changer dans Mon espace.</li>
 <li><b>Des journaux techniques</b> (adresse IP, date, page demandée), gardés par l'hébergeur pour la sécurité du site.</li>
 </ul>
 
@@ -75,7 +75,7 @@ confidentialite: `
 <p>Sur les serveurs de Render, en Allemagne (Francfort, Union européenne). Les polices d'écriture du site sont chargées depuis Google Fonts, qui voit donc ton adresse IP quand tu ouvres le site.</p>
 
 <h2>Combien de temps</h2>
-<p>Tant que ton compte existe. Quand tu le supprimes (Mon espace › Supprimer mon compte), tout est effacé immédiatement : histoires, avis, blog, abonnements. Les journaux techniques de l'hébergeur sont effacés au bout de quelques semaines.</p>
+<p>Tant que ton compte existe. Quand tu le supprimes (Mon espace › Supprimer mon compte), tout est effacé immédiatement : e-mail, histoires, avis, blog, abonnements. Seule exception : l'e-mail d'un compte banni est gardé pour empêcher sa réinscription. Les journaux techniques de l'hébergeur sont effacés au bout de quelques semaines.</p>
 
 <h2>Tes droits</h2>
 <p>Tu peux consulter, corriger et supprimer tes données directement dans Mon espace. Pour toute autre demande, écris à <b>[À COMPLÉTER : adresse e-mail de contact]</b>. Tu peux aussi saisir la CNIL (cnil.fr).</p>
