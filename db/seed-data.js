@@ -1,4 +1,4 @@
-// Histoires d'exemple du prototype, chargées une seule fois si la base est vide.
+// Histoires d'exemple, chargées une seule fois si la base est vide.
 const AUTHORS={
   "LuneDeMinuit":{color:"#3B1F5C",bio:"J'écris la nuit, quand la maison dort. Fan de vampires, de brume et de fins qui laissent un frisson.",followers:214,
     posts:[{d:"2026-11-02",t:"Le chapitre 4 des « Sang d'Opale » arrive dimanche ! Vous pensez qu'Aster va trahir Mila ? 👀"},{d:"2026-10-20",t:"Merci pour les 200 abonnés. Je prépare une histoire courte d'Halloween en bonus."}]},

@@ -285,12 +285,6 @@ app.delete("/api/me", needUser, wrap(async (req, res) => {
   await q("DELETE FROM users WHERE id=$1", [req.user.id]);
   res.clearCookie(COOKIE); res.json({ ok: true });
 }));
-app.post("/api/premium", needUser, wrap(async (req, res) => {
-  // Démo : bascule Premium sans paiement
-  const r = await q("UPDATE users SET premium = NOT premium WHERE id=$1 RETURNING *", [req.user.id]);
-  res.json({ me: publicMe(r.rows[0]) });
-}));
-
 /* ----- Histoires ----- */
 const STORY_COLS = `s.id, s.title, s.summary, s.section, s.genre, s.kind AS type, s.cover, s.reads, s.created_at,
   u.pseudo AS author, u.color AS author_color, u.real_name AS author_name,

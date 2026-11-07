@@ -509,16 +509,16 @@ function bindSpace(){
 
 /* ---------- Premium ---------- */
 function viewPremium(){
-  const on=!!state.me?.premium;
+
   return`<div class="eyebrow" style="color:var(--gold)">★ Premium</div><h1 style="margin:6px 0 10px">Lire et écrire reste gratuit.<br>Le Premium ajoute des bonus.</h1>
-  <p class="muted" style="max-width:60ch;margin:0">Les fonctions qui coûtent cher à faire tourner, comme l'IA, sont réservées au Premium. Le paiement n'est pas encore branché : le bouton active le Premium gratuitement pour tester.</p>
+  <p class="muted" style="max-width:60ch;margin:0">Les fonctions qui coûtent cher à faire tourner, comme l'IA, sont réservées au Premium. Le Premium arrive bientôt.</p>
   <div class="plans">
-    <div class="plan"><h3>Gratuit</h3><div class="price">0 €</div><ul><li>Lire toutes les histoires</li><li>Publier sans limite</li><li>Couvertures personnalisées</li><li>Avis, abonnés, blog</li></ul><button class="btn" disabled>${on?"Inclus":"Ton offre actuelle"}</button></div>
+    <div class="plan"><h3>Gratuit</h3><div class="price">0 €</div><ul><li>Lire toutes les histoires</li><li>Publier sans limite</li><li>Couvertures personnalisées</li><li>Avis, abonnés, blog</li></ul><button class="btn" disabled>Ton offre actuelle</button></div>
     <div class="plan best"><h3>Premium</h3><div class="price">2,99 € <span class="muted" style="font-size:15px;font-family:var(--f-body)">/ mois</span></div><ul><li>Tout le gratuit</li><li>Couvertures générées par IA</li><li>Statistiques de lecture détaillées</li><li>Badge ★ sur ton profil</li><li>Nouvelles polices et formes</li></ul>
-      <button class="btn gold" id="premBtn">${on?"Premium activé (test) · Désactiver":"Essayer gratuitement (test)"}</button></div>
+      <button class="btn gold" disabled>Bientôt disponible</button></div>
   </div>`;
 }
-function bindPremium(){$("#premBtn").onclick=async()=>{if(!state.me)return needLogin("premium");try{state.me=(await api("POST","/api/premium")).me;toast(state.me.premium?"Premium activé pour le test":"Premium désactivé");render()}catch(e){toast(e.message)}}}
+function bindPremium(){}
 
 /* ---------- Modération ---------- */
 async function loadModeration(){const r=await api("GET","/api/admin/reports");return{reports:r.reports}}
