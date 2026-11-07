@@ -23,7 +23,7 @@ const pool = new Pool({
 const q = (text, params) => pool.query(text, params);
 
 /* ---------- Règles ---------- */
-const GENRES = ["Fantaisie","Fantastique","Romance","Aventure","Humour","Autobiographie","Mystère","Horreur","Science-fiction","Poésie"];
+const GENRES = ["Fantaisie", "Fantastique", "Science-fiction", "Dystopie", "Aventure", "Action", "Romance", "Drame", "Tranche de vie", "Humour", "Mystère", "Policier", "Thriller", "Horreur", "Historique", "Conte", "Fanfiction", "Autobiographie", "Poésie"];
 const COLORS = ["#1D1A33","#3B1F5C","#0F4C5C","#1F6E43","#7A1E3A","#D3336A","#F28C38"];
 const thisYear = () => new Date().getFullYear();
 const ageOf = u => thisYear() - u.birth_year;
@@ -580,42 +580,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Une erreur est survenue. Réessaie dans un instant." });
 });
 
-/* ---------- Démarrage : schéma + histoires d'exemple si la base est vide ---------- */
+/* ---------- Démarrage : schéma ---------- */
 async function init() {
   await q(fs.readFileSync(path.join(__dirname, "db", "schema.sql"), "utf8"));
-  // Comptes 18+ créés avant la validation par un modérateur : ils passent en attente
-  const n = await q("SELECT count(*)::int AS n FROM stories");
-  if (n.rows[0].n === 0 && process.env.SEED_DEMO !== "false") {
-    const { AUTHORS, SEED } = require("./db/seed-data.js");
-    const ids = {};
-    for (const [pseudo, a] of Object.entries(AUTHORS)) {
-      // Comptes d'exemple : mot de passe aléatoire, connexion impossible (is_demo)
-      const r = await q(`INSERT INTO users (pseudo,password_hash,bio,color,birth_year,is_demo) VALUES ($1,$2,$3,$4,1990,true)
-        ON CONFLICT ((lower(pseudo))) DO UPDATE SET bio=EXCLUDED.bio RETURNING id`, [pseudo, crypto.randomBytes(24).toString("hex"), a.bio, a.color]);
-      ids[pseudo] = r.rows[0].id;
-      for (const p of a.posts) await q("INSERT INTO posts (user_id, body, created_at) VALUES ($1,$2,$3)", [ids[pseudo], p.t, p.d + "T12:00:00Z"]);
-    }
-    const reviewers = {};
-    const reviewer = async who => {
-      if (reviewers[who]) return reviewers[who];
-      const r = await q(`INSERT INTO users (pseudo,password_hash,birth_year,is_demo) VALUES ($1,$2,2011,true) ON CONFLICT ((lower(pseudo))) DO UPDATE SET is_demo=true RETURNING id`,
-        [who, crypto.randomBytes(24).toString("hex")]);
-      return (reviewers[who] = r.rows[0].id);
-    };
-    let anon = 0;
-    for (const s of SEED) {
-      const r = await q(`INSERT INTO stories (author_id,title,summary,section,genre,kind,cover,reads,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-        [ids[s.author], s.title, s.summary, s.section, s.genre, s.type, s.cover, s.reads, s.date + "T12:00:00Z"]);
-      const sid = r.rows[0].id;
-      for (const [i, c] of s.chapters.entries()) await q("INSERT INTO chapters (story_id,position,title,body) VALUES ($1,$2,$3,$4)", [sid, i, c.t, c.p.join("\n\n")]);
-      for (const v of s.reviews) {
-        const isAnon = v.who === "Anonyme";
-        const uid = await reviewer(isAnon ? "Lecteur_exemple_" + ++anon : v.who);
-        await q("INSERT INTO reviews (story_id,user_id,anonymous,stars,body,created_at) VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING", [sid, uid, isAnon, v.s, v.t, v.d + "T12:00:00Z"]);
-      }
-    }
-    console.log("Histoires d'exemple ajoutées.");
-  }
+  // Les histoires d'exemple ont été retirées : on supprime les comptes d'exemple (et tout ce qui en dépend)
+  const d = await q("DELETE FROM users WHERE is_demo");
+  if (d.rowCount) console.log(`Comptes d'exemple supprimés : ${d.rowCount}`);
 }
 if (require.main === module) {
   init().then(() => app.listen(PORT, () => console.log("Mille Plumes sur le port " + PORT)))

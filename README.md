@@ -5,7 +5,6 @@ Plateforme d'écriture et de lecture anonyme, imaginée par Roxane.
 ## Ce qu'il y a dedans
 - `server.js` : serveur Node/Express + API (`/api/...`). Comptes par pseudo (sans e-mail), mot de passe chiffré (bcrypt), session en cookie.
 - `db/schema.sql` : tables Postgres (comptes, histoires, chapitres, avis, abonnements, blog, signalements). Appliqué au démarrage.
-- `db/seed-data.js` : histoires d'exemple, ajoutées une seule fois si la base est vide (désactiver avec `SEED_DEMO=false`).
 - `public/` : le site (installable sur téléphone).
 - `test/api.test.js` : test de bout en bout (`npm test`, avec `DATABASE_URL` vers une base de test).
 

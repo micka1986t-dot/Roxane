@@ -5,7 +5,7 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const store={get(k,d){try{const v=localStorage.getItem("pl_"+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem("pl_"+k,JSON.stringify(v))}catch(e){}}};
 
 /* ---------- Constantes ---------- */
-const GENRES=["Fantaisie","Fantastique","Romance","Aventure","Humour","Autobiographie","Mystère","Horreur","Science-fiction","Poésie"];
+const GENRES=["Fantaisie","Fantastique","Science-fiction","Dystopie","Aventure","Action","Romance","Drame","Tranche de vie","Humour","Mystère","Policier","Thriller","Horreur","Historique","Conte","Fanfiction","Autobiographie","Poésie"];
 const FONT_LABEL={display:"Classique",script:"Rétro",hand:"Manuscrit",royal:"Royal",typewriter:"Machine",bold:"Affiche"};
 const PALETTE=["#FFFFFF","#1D1A33","#F2C94C","#F28C38","#D3336A","#7A1E3A","#8FD3E8","#0F4C5C","#1F6E43","#F7D6E0","#EDE6D6","#000000"];
 const FONTS={display:"Gloock, serif",script:"Pacifico, cursive",hand:"Caveat, cursive",royal:"Cinzel, serif",typewriter:"'Special Elite', monospace",bold:"Bungee, sans-serif"};
