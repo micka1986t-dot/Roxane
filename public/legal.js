@@ -23,7 +23,7 @@ charte: `
 <h2>3. Ce qu'on peut publier</h2>
 <ul>
 <li><b>Section Jeunesse :</b> tout public. Pas de scènes sexuelles, pas de violence très détaillée, pas de gros mots en série. Un filtre bloque automatiquement certains mots.</li>
-<li><b>Section Adulte :</b> réservée aux comptes de 18 ans et plus validés par un modérateur. Les thèmes adultes sont permis, mais les contenus pornographiques, l'incitation à la haine ou à la violence, et tout ce qui est illégal restent interdits.</li>
+<li><b>Section Adulte :</b> réservée aux comptes de 18 ans et plus ayant confirmé leur e-mail. Mentir sur son âge est interdit et entraîne le bannissement du compte. Les thèmes adultes sont permis, mais les contenus pornographiques, l'incitation à la haine ou à la violence, et tout ce qui est illégal restent interdits.</li>
 <li>Aucun contenu, dans aucune section, ne doit sexualiser des mineurs.</li>
 <li>Pas de publicité, pas de liens vers d'autres sites.</li>
 </ul>

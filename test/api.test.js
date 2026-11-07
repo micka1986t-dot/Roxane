@@ -32,7 +32,7 @@ const { app, init, pool } = require("../server.js");
   r = await call("dup", "POST", "/api/signup", { pseudo: "Dup_" + tag, password: "motdepasse2", birthYear: y - 30, acceptTerms: true, email: `kid.${tag}@EXEMPLE.fr` });
   assert.equal(r.status, 400, "e-mail unique"); assert.match(r.body.error, /déjà utilisé/);
   r = await call("ad", "POST", "/api/signup", { pseudo: adult, password: "motdepasse2", birthYear: y - 30, acceptTerms: true, email: `ad.${tag}@exemple.fr` });
-  assert.equal(r.body.me.adult, false, "adulte pas encore validé"); assert.equal(r.body.me.adultPending, true);
+  assert.equal(r.body.me.adult, false, "adulte : e-mail pas encore confirmé"); assert.equal(r.body.me.adultPending, true);
   assert.match(r.body.recoveryCode, /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
   const adultCode = r.body.recoveryCode;
   // confirmation de l'e-mail
@@ -46,10 +46,8 @@ const { app, init, pool } = require("../server.js");
   await verify("kid"); await verify("ad");
   r = await call("modo", "POST", "/api/signup", { pseudo: "ModoTest", password: "motdepasse3", birthYear: y - 40, acceptTerms: true, email: `modo.${tag}@exemple.fr` });
   if (r.status !== 200) r = await call("modo", "POST", "/api/login", { pseudo: "ModoTest", password: "motdepasse3" });
-  r = await call("modo", "GET", "/api/admin/adults"); const pend = r.body.users.find(u => u.pseudo === adult); assert.ok(pend, "adulte en attente visible");
-  r = await call("kid", "GET", "/api/admin/adults"); assert.equal(r.status, 403);
-  r = await call("modo", "POST", `/api/admin/adults/${pend.id}`, { action: "verify" });
-  r = await call("ad", "GET", "/api/me"); assert.equal(r.body.me.adult, true, "adulte validé"); assert.equal(r.body.me.unread, 1, "notification de validation");
+  r = await call("ad", "GET", "/api/me"); assert.equal(r.body.me.adult, true, "adulte avec e-mail confirmé"); assert.equal(r.body.me.adultPending, false);
+  r = await call("kid", "GET", "/api/me"); assert.equal(r.body.me.adult, false, "mineur jamais adulte, même confirmé");
   // code de secours
   r = await call("ad2", "POST", "/api/recover", { pseudo: adult, code: "AAAA-BBBB-CCCC", password: "nouveaumdp1" }); assert.equal(r.status, 400);
   r = await call("ad2", "POST", "/api/recover", { pseudo: adult, code: adultCode.toLowerCase().replace(/-/g, " "), password: "nouveaumdp1" });

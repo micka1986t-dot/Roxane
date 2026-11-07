@@ -471,7 +471,7 @@ function viewSpace(sp){
         <h3>Leurs dernières annonces</h3>
         ${sp.feed.length?sp.feed.map(x=>`<div class="post"><time>${esc(x.pseudo)} · ${fmtDate(x.created_at)}</time><div>${esc(x.body)}</div></div>`).join(""):`<p class="muted" style="margin:0">Les annonces des auteurs que tu suis apparaîtront ici.</p>`}
       </div>
-      ${me.adultPending?`<div class="note">Ton compte adulte attend la validation d'un modérateur. En attendant, tu as accès à la section Jeunesse.</div>`:""}
+      ${me.adultPending?`<div class="note">Confirme ton e-mail pour accéder à la section Adulte (lien reçu à l'inscription). En attendant, tu as accès à la section Jeunesse.</div>`:""}
       <div class="panel stack"><h3>Sécurité</h3>
         ${passInput("curPass","current-password","Mot de passe actuel")}
         ${passInput("newPass","new-password","Nouveau mot de passe")}
@@ -520,14 +520,10 @@ function viewPremium(){
 function bindPremium(){$("#premBtn").onclick=async()=>{if(!state.me)return needLogin("premium");try{state.me=(await api("POST","/api/premium")).me;toast(state.me.premium?"Premium activé pour le test":"Premium désactivé");render()}catch(e){toast(e.message)}}}
 
 /* ---------- Modération ---------- */
-async function loadModeration(){const[r,a]=await Promise.all([api("GET","/api/admin/reports"),api("GET","/api/admin/adults")]);return{reports:r.reports,adults:a.users}}
+async function loadModeration(){const r=await api("GET","/api/admin/reports");return{reports:r.reports}}
 function viewModeration(d){
   const list=d.reports;
   return`<div class="eyebrow">Réservé à la modération</div><h1 style="margin:6px 0 18px">Modération</h1>
-  <h2 style="margin-bottom:10px">Comptes adultes à valider</h2>
-  <p class="muted" style="margin:0 0 12px;max-width:60ch">Ces personnes déclarent avoir 18 ans ou plus. Valide seulement si tu sais que c'est vrai (par exemple une personne que tu connais). Sinon, refuse : le compte garde l'accès à la section Jeunesse.</p>
-  ${d.adults.length?`<div class="stack" style="margin-bottom:28px">${d.adults.map(u=>`<div class="panel row" style="justify-content:space-between"><span><b>${esc(u.pseudo)}</b> <span class="muted">· né·e en ${u.birth_year} · inscrit·e le ${fmtDate(u.created_at)}</span></span>
-    <span class="row"><button class="btn small primary" data-adult="verify" data-id="${u.id}">Valider</button><button class="btn small ghost" data-adult="reject" data-id="${u.id}">Refuser</button></span></div>`).join("")}</div>`:`<div class="empty" style="margin-bottom:28px">Aucun compte en attente.</div>`}
   <h2 style="margin-bottom:10px">Signalements à traiter</h2>
   ${list.length?`<div class="stack">${list.map(r=>`<div class="panel stack" style="gap:8px">
     <div class="row" style="justify-content:space-between"><span class="tag ${r.target_type==="story"?"a":""}">${r.target_type==="story"?"Histoire":"Avis"}</span><span class="muted" style="font-size:13px">${fmtDate(r.created_at)}</span></div>
@@ -535,7 +531,7 @@ function viewModeration(d){
     <div class="row">${r.story_id?`<a class="btn small" href="#histoire-${r.story_id}">Voir</a>`:""}<button class="btn small primary" data-act="hide" data-id="${r.id}">Masquer le contenu</button><button class="btn small ghost" data-act="ok" data-id="${r.id}">Rien à signaler</button>${r.author?`<button class="btn small ghost" data-ban="${r.id}" data-who="${esc(r.author)}">Bannir ${esc(r.author)}</button>`:""}</div></div>`).join("")}</div>`:`<div class="empty">Aucun signalement en attente.</div>`}`;
 }
 function bindModeration(){document.querySelectorAll("[data-ban]").forEach(b=>b.onclick=()=>modal(`<h3>Bannir ${esc(b.dataset.who)} ?</h3><p style="margin:0">Son compte sera fermé, toutes ses histoires et tous ses avis seront masqués, et son e-mail ne pourra plus servir à créer un compte. À réserver aux problèmes graves ou répétés.</p>
-    <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Annuler</button><button class="btn primary" id="banOk">Bannir</button></div>`,m=>{$("#banOk",m).onclick=async()=>{try{await api("POST","/api/admin/reports/"+b.dataset.ban,{action:"ban"});closeModal();toast(b.dataset.who+" est banni·e");render()}catch(e){closeModal();toast(e.message)}}}));document.querySelectorAll("[data-adult]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/adults/"+b.dataset.id,{action:b.dataset.adult});toast(b.dataset.adult==="verify"?"Compte adulte validé":"Demande refusée");render()}catch(e){toast(e.message)}});document.querySelectorAll("[data-act]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/reports/"+b.dataset.id,{action:b.dataset.act});toast(b.dataset.act==="hide"?"Contenu masqué":"Signalement classé");render()}catch(e){toast(e.message)}})}
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Annuler</button><button class="btn primary" id="banOk">Bannir</button></div>`,m=>{$("#banOk",m).onclick=async()=>{try{await api("POST","/api/admin/reports/"+b.dataset.ban,{action:"ban"});closeModal();toast(b.dataset.who+" est banni·e");render()}catch(e){closeModal();toast(e.message)}}}));document.querySelectorAll("[data-act]").forEach(b=>b.onclick=async()=>{try{await api("POST","/api/admin/reports/"+b.dataset.id,{action:b.dataset.act});toast(b.dataset.act==="hide"?"Contenu masqué":"Signalement classé");render()}catch(e){toast(e.message)}})}
 
 /* ---------- Notifications ---------- */
 async function loadNotifs(){const r=await api("GET","/api/notifications");if(state.me?.unread){api("POST","/api/notifications/read").catch(()=>{});state.me.unread=0;updateNav()}return r.notifications}
@@ -563,7 +559,7 @@ function updateNav(){
 }
 $("#secJ").onclick=()=>{setSection("jeunesse");go("explorer")};
 $("#secA").onclick=()=>{
-  if(!state.me?.adult){modal(`<h3>Section Adulte</h3><p style="margin:0">${state.me?.adultPending?"Ton compte adulte attend la validation d'un modérateur. Tu y auras accès dès qu'il sera validé.":"Cette partie est réservée aux comptes de 18 ans et plus, validés par un modérateur."}</p>
+  if(!state.me?.adult){modal(`<h3>Section Adulte</h3><p style="margin:0">${state.me?.adultPending?"Confirme ton e-mail (lien reçu à l'inscription) pour y accéder.":"Cette partie est réservée aux comptes de 18 ans et plus ayant confirmé leur e-mail."}</p>
     <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Rester en Jeunesse</button>${state.me?"":`<button class="btn primary" id="gLogin">Se connecter</button>`}</div>`,
     m=>{$("#gLogin",m)?.addEventListener("click",()=>{closeModal();needLogin("explorer")})});return}
   setSection("adulte");go("explorer")};

@@ -27,8 +27,8 @@ const GENRES = ["Fantaisie","Fantastique","Romance","Aventure","Humour","Autobio
 const COLORS = ["#1D1A33","#3B1F5C","#0F4C5C","#1F6E43","#7A1E3A","#D3336A","#F28C38"];
 const thisYear = () => new Date().getFullYear();
 const ageOf = u => thisYear() - u.birth_year;
-// Section Adulte : 18 ans déclarés ET compte validé par un modérateur
-const isAdult = u => !!u && ageOf(u) >= 18 && (u.adult_status === "verified" || u.is_admin);
+// Section Adulte : 18 ans déclarés (année de naissance non modifiable) ET e-mail confirmé
+const isAdult = u => !!u && ageOf(u) >= 18 && (u.is_admin || u.email_verified || !mail.enabled);
 // Filtre de mots : refuse le texte si un mot interdit est trouvé
 const clean = (text, what = "Ton texte") => { const w = findBadWord(text); if (w) bad(`${what} contient un mot interdit sur le site (« ${w} »). Remplace-le pour pouvoir publier.`); };
 // Code de secours : remplace l'e-mail pour récupérer son compte
@@ -141,7 +141,7 @@ async function banUser(id, by) {
 const needAdmin = (req, res, next) => req.user?.is_admin ? next() : res.status(403).json({ error: "Réservé à la modération." });
 
 const publicMe = (u, extra = {}) => u && ({ id: u.id, pseudo: u.pseudo, bio: u.bio, color: u.color, adult: isAdult(u),
-  adultPending: ageOf(u) >= 18 && !isAdult(u) && u.adult_status === "pending", premium: u.premium, isAdmin: u.is_admin,
+  adultPending: ageOf(u) >= 18 && !isAdult(u), premium: u.premium, isAdmin: u.is_admin,
   email: u.recovery_email ? mail.maskEmail(u.recovery_email) : null, emailVerified: u.email_verified, ...extra });
 const unreadCount = async u => (await q("SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read", [u.id])).rows[0].n;
 
@@ -343,7 +343,7 @@ function readStoryBody(b, user) {
   const section = b.section === "adulte" ? "adulte" : "jeunesse";
   const type = b.type === "chapitres" ? "chapitres" : "courte";
   if (!title) bad("Il manque un titre.");
-  if (section === "adulte" && !isAdult(user)) bad("La section Adulte est réservée aux comptes adultes validés.");
+  if (section === "adulte" && !isAdult(user)) bad("La section Adulte est réservée aux comptes de 18 ans et plus ayant confirmé leur e-mail.");
   if (!GENRES.includes(b.genre)) bad("Choisis un genre.");
   const chapters = (Array.isArray(b.chapters) ? b.chapters : []).slice(0, 100).map((c, i) => ({ title: str(c.title, 80), body: str(c.body, 60000), i }));
   if (!chapters.length || (type === "courte" && chapters.length !== 1)) bad("Le texte est vide.");
@@ -519,18 +519,6 @@ app.post("/api/notifications/read", needUser, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-/* ----- Comptes adultes à valider ----- */
-app.get("/api/admin/adults", needUser, needAdmin, wrap(async (req, res) => {
-  const r = await q("SELECT id, pseudo, birth_year, created_at FROM users WHERE adult_status='pending' AND NOT is_demo AND NOT banned ORDER BY created_at");
-  res.json({ users: r.rows });
-}));
-app.post("/api/admin/adults/:id", needUser, needAdmin, wrap(async (req, res) => {
-  const status = req.body.action === "verify" ? "verified" : "rejected";
-  await q("UPDATE users SET adult_status=$1 WHERE id=$2 AND adult_status='pending'", [status, parseInt(req.params.id, 10)]);
-  if (status === "verified") await notify(parseInt(req.params.id, 10), "adult", "Mille Plumes", null, "a validé ton compte adulte : la section Adulte t'est ouverte.");
-  res.json({ ok: true });
-}));
-
 app.get("/healthz", wrap(async (req, res) => { await q("SELECT 1"); res.send("ok"); }));
 app.use("/api", (req, res) => res.status(404).json({ error: "Introuvable." }));
 
@@ -549,7 +537,6 @@ app.use((err, req, res, next) => {
 async function init() {
   await q(fs.readFileSync(path.join(__dirname, "db", "schema.sql"), "utf8"));
   // Comptes 18+ créés avant la validation par un modérateur : ils passent en attente
-  await q("UPDATE users SET adult_status='pending' WHERE adult_status='none' AND NOT is_demo AND NOT is_admin AND birth_year <= $1", [thisYear() - 18]);
   const n = await q("SELECT count(*)::int AS n FROM stories");
   if (n.rows[0].n === 0 && process.env.SEED_DEMO !== "false") {
     const { AUTHORS, SEED } = require("./db/seed-data.js");
