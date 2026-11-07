@@ -125,3 +125,10 @@ CREATE TABLE IF NOT EXISTS banned_emails (
 
 -- v0.6 : vrai nom facultatif pour les comptes adultes (affiché à côté du pseudo)
 ALTER TABLE users ADD COLUMN IF NOT EXISTS real_name TEXT NOT NULL DEFAULT '';
+
+-- v0.7 : image de couverture importée (JPEG redimensionné côté navigateur)
+CREATE TABLE IF NOT EXISTS story_covers (
+  story_id   INT PRIMARY KEY REFERENCES stories(id) ON DELETE CASCADE,
+  data       BYTEA NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -97,6 +97,16 @@ const { app, init, pool } = require("../server.js");
   r = await call("ad", "POST", `/api/authors/${kid}/follow`); assert.equal(r.body.following, true);
   r = await call("kid", "POST", "/api/stories", { title: "Mon test", genre: "Humour", type: "courte", chapters: [{ body }] });
   assert.equal(r.status, 200); const sid = r.body.id;
+  // image de couverture
+  const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 1)]);
+  const putCover = async (who, id, buf, type = "image/jpeg") => (await fetch(base + `/api/stories/${id}/cover`, { method: "PUT", headers: { "Content-Type": type, Cookie: jar[who] || "" }, body: buf })).status;
+  assert.equal(await putCover("ad", sid, jpeg), 404, "seul l'auteur change la couverture");
+  assert.equal(await putCover("kid", sid, Buffer.from("pas une image du tout, vraiment pas, non non non non non non non non non non non non non non non non non non non non non non non")), 400);
+  assert.equal(await putCover("kid", sid, jpeg), 200);
+  r = await call("anon", "GET", `/api/stories/${sid}`); assert.ok(r.body.story.cover_v > 0, "version de couverture");
+  let img = await fetch(base + `/api/covers/${sid}`); assert.equal(img.status, 200); assert.equal(img.headers.get("content-type"), "image/jpeg"); assert.equal((await img.arrayBuffer()).byteLength, jpeg.length);
+  r = await call("kid", "DELETE", `/api/stories/${sid}/cover`); r = await call("anon", "GET", `/api/stories/${sid}`); assert.equal(r.body.story.cover_v, null);
+  img = await fetch(base + `/api/covers/${sid}`); assert.equal(img.status, 404);
   r = await call("ad", "GET", "/api/notifications"); assert.ok(r.body.notifications.some(n => n.kind === "story" && n.story_id === sid), "abonné prévenu");
   r = await call("ad", "POST", "/api/notifications/read"); r = await call("ad", "GET", "/api/me"); assert.equal(r.body.me.unread, 0);
   r = await call("ad", "PUT", `/api/stories/${sid}`, { title: "Piraté", genre: "Humour", type: "courte", chapters: [{ body }] }); assert.equal(r.status, 404, "seul l'auteur modifie");

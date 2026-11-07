@@ -7,10 +7,6 @@ const store={get(k,d){try{const v=localStorage.getItem("pl_"+k);return v?JSON.pa
 /* ---------- Constantes ---------- */
 const GENRES=["Fantaisie","Fantastique","Romance","Aventure","Humour","Autobiographie","Mystère","Science-fiction","Poésie"];
 const FONTS={display:"Gloock, serif",script:"Pacifico, cursive",hand:"Caveat, cursive",royal:"Cinzel, serif",typewriter:"'Special Elite', monospace",bold:"Bungee, sans-serif"};
-const FONT_LABEL={display:"Classique",script:"Rétro",hand:"Manuscrit",royal:"Royal",typewriter:"Machine à écrire",bold:"Affiche"};
-const PALETTE=["#1D1A33","#3B1F5C","#0F4C5C","#1F6E43","#7A1E3A","#D3336A","#F28C38","#F2C94C","#8FD3E8","#F7D6E0","#EDE6D6","#FFFFFF"];
-const PATTERNS={none:"Uni",gradient:"Dégradé",dots:"Pois",stripes:"Rayures",stars:"Étoiles",waves:"Vagues"};
-const SHAPES={none:"Aucune",circle:"Lune",arch:"Arche",diamond:"Losange",mountain:"Montagnes",heart:"Cœur"};
 const AI_OVERLAY="radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.25),transparent 60%),radial-gradient(ellipse at 80% 90%,rgba(0,0,0,.35),transparent 55%)";
 
 /* ---------- État ---------- */
@@ -59,6 +55,8 @@ function shapeHTML(c){
   }
 }
 function coverHTML(s){
+  const img=s.coverSrc||(s.cover_v?`/api/covers/${s.id}?v=${s.cover_v}`:"");
+  if(img)return`<div class="cover has-img"><img src="${esc(img)}" alt="Couverture de ${esc(s.title||"l'histoire")}" loading="lazy"></div>`;
   const c=s.cover&&s.cover.bg?s.cover:{bg:"#1D1A33",pattern:"none",font:"display",text:"#fff"};
   return`<div class="cover"><div class="pat" style="${patternCSS(c)}"></div>${c.ai?`<div class="pat" style="background:${AI_OVERLAY}"></div>`:""}${shapeHTML(c)}
   <div class="ct" style="font-family:${FONTS[c.font]||FONTS.display};color:${c.text}">${esc(s.title||"Titre de ton histoire")}</div>
@@ -338,7 +336,25 @@ function viewVerify(d){return`<div class="panel stack" style="max-width:460px;ma
 /* ---------- Atelier d'écriture ---------- */
 let draft=null;
 function newDraft(){return{title:"",summary:"",section:"jeunesse",genre:"Fantaisie",type:"courte",chapters:[{t:"",body:""}],
-  cover:{bg:"#3B1F5C",bg2:"#D3336A",pattern:"gradient",shape:"circle",shapeColor:"#F2C94C",font:"display",text:"#FFFFFF"}}}
+  cover:{bg:"#3B1F5C",bg2:"#D3336A",pattern:"gradient",shape:"none",font:"display",text:"#FFFFFF"}}}
+// Image de couverture choisie (gardée en mémoire seulement, pas dans le brouillon)
+let coverPick={blob:null,url:"",remove:false};
+const resetCoverPick=(url="")=>{if(coverPick.blob&&coverPick.url)URL.revokeObjectURL(coverPick.url);coverPick={blob:null,url,remove:false}};
+// Recadre au centre en 2:3 et réduit à 800 × 1200 maximum, en JPEG
+function prepareCover(file){return new Promise((ok,ko)=>{
+  if(!/^image\//.test(file.type))return ko(new Error("Choisis un fichier image (JPG, PNG ou WebP)."));
+  if(file.size>15*1024*1024)return ko(new Error("Image trop lourde (15 Mo maximum)."));
+  const u=URL.createObjectURL(file),im=new Image();
+  im.onload=()=>{URL.revokeObjectURL(u);
+    const W=im.naturalWidth,H=im.naturalHeight;
+    if(W<400||H<600)return ko(new Error(`Image trop petite (${W} × ${H} pixels). Il faut au moins 400 × 600, idéalement 1600 × 2400.`));
+    let sw=W,sh=W*1.5;if(sh>H){sh=H;sw=H/1.5}
+    const sx=(W-sw)/2,sy=(H-sh)/2,tw=Math.min(800,Math.round(sw)),th=Math.round(tw*1.5);
+    const cv=document.createElement("canvas");cv.width=tw;cv.height=th;
+    const ctx=cv.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,tw,th);ctx.drawImage(im,sx,sy,sw,sh,0,0,tw,th);
+    cv.toBlob(b=>b?ok({blob:b,ratioOk:Math.abs(W/H-2/3)<0.05}):ko(new Error("Cette image n'a pas pu être lue.")),"image/jpeg",0.85)};
+  im.onerror=()=>{URL.revokeObjectURL(u);ko(new Error("Cette image n'a pas pu être lue. Essaie une image JPG ou PNG."))};
+  im.src=u})}
 function wc(t){const n=(t||"").trim()?t.trim().split(/\s+/).length:0;return n+" mot"+(n>1?"s":"")+(n?` · environ ${Math.max(1,Math.round(n/200))} min de lecture`:"")}
 let editing=null; // id de l'histoire en cours de modification
 async function loadEdit(id){
@@ -346,14 +362,14 @@ async function loadEdit(id){
   if(!s.mine)throw new Error("Tu ne peux modifier que tes propres histoires.");
   editing=s.id;
   draft={title:s.title,summary:s.summary,section:s.section,genre:s.genre,type:s.type,cover:{...s.cover},chapters:s.chapters.map(c=>({t:c.title,body:c.body}))};
+  resetCoverPick(s.cover_v?`/api/covers/${s.id}?v=${s.cover_v}`:"");
   return s;
 }
 function viewWrite(){
-  if(location.hash.startsWith("#ecrire")&&editing){editing=null;draft=null}
+  if(location.hash.startsWith("#ecrire")&&editing){editing=null;draft=null;resetCoverPick()}
+  if(!draft)resetCoverPick();
   draft=draft||store.get("draft",null)||newDraft();
-  const d=draft,c=d.cover;
-  const sw=key=>`<div class="swatches" data-key="${key}">${PALETTE.map(col=>`<button class="sw" style="background:${col}" data-v="${col}" aria-label="${col}" aria-pressed="${c[key]===col}"></button>`).join("")}</div>`;
-  const opts=(key,obj)=>`<div class="opt-row" data-key="${key}">${Object.entries(obj).map(([k,v])=>`<button class="opt" data-v="${k}" aria-pressed="${c[key]===k}" ${key==="font"?`style="font-family:${FONTS[k]}"`:""}>${v}</button>`).join("")}</div>`;
+  const d=draft;
   return`<div class="eyebrow">Atelier d'écriture · tu publies en tant que ${esc(state.me.pseudo)}</div>
   <h1 style="margin:6px 0 22px">${editing?"Modifier mon histoire":"Nouvelle histoire"}</h1>
   <div class="studio">
@@ -375,24 +391,19 @@ function viewWrite(){
     </div>
     <aside class="designer panel">
       <div class="eyebrow">Ta couverture</div>
-      <div id="coverPrev">${coverHTML({title:d.title,author:state.me.pseudo,cover:c})}</div>
-      <div class="field"><span class="lab">Fond</span>${opts("pattern",PATTERNS)}</div>
-      <div class="field"><span class="lab">Couleur 1</span>${sw("bg")}</div>
-      <div class="field"><span class="lab">Couleur 2</span>${sw("bg2")}</div>
-      <div class="field"><span class="lab">Forme</span>${opts("shape",SHAPES)}</div>
-      <div class="field"><span class="lab">Couleur de la forme</span>${sw("shapeColor")}</div>
-      <div class="field"><span class="lab">Police du titre</span>${opts("font",FONT_LABEL)}</div>
-      <div class="field"><span class="lab">Couleur du texte</span>${sw("text")}</div>
-      <div class="ai-box">
-        <b>★ Couverture par IA</b>
-        <span style="font-size:14px">Décris l'ambiance et l'IA propose une couverture. Réservé au Premium.</span>
-        <input type="text" id="aiPrompt" placeholder="ex. forêt brumeuse, lune rouge, mystère">
-        <button class="btn gold" id="aiGen">Générer avec l'IA</button>
+      <div id="coverPrev">${coverPrevHTML()}</div>
+      <input type="file" id="coverFile" accept="image/jpeg,image/png,image/webp" hidden>
+      <div class="row" style="justify-content:center"><button class="btn small primary" id="coverPickBtn">${coverPick.url?"Changer l'image":"Importer une image"}</button>${coverPick.url?`<button class="btn small ghost" id="coverDel">Retirer</button>`:""}</div>
+      <div id="coverErr" class="note" hidden></div>
+      <div class="muted" style="font-size:13px;line-height:1.45">
+        <b>Format conseillé :</b> portrait, rapport 2:3 (comme un livre), idéalement <b>1600 × 2400 pixels</b>, au moins 800 × 1200. JPG, PNG ou WebP. Si l'image n'a pas ce format, elle est recadrée au centre.<br>
+        Utilise une image que tu as faite ou que tu as le droit d'utiliser, et pas de photo où l'on te reconnaît. Sans image, une couverture simple avec ton titre est créée.
       </div>
     </aside>
   </div>`;
 }
-function refreshCover(){$("#coverPrev").innerHTML=coverHTML({title:draft.title,author:state.me.pseudo,cover:draft.cover})}
+function coverPrevHTML(){return coverHTML({title:draft.title,author:state.me.pseudo,cover:draft.cover,coverSrc:coverPick.url})}
+function refreshCover(){$("#coverPrev").innerHTML=coverPrevHTML()}
 function bindWrite(){
   const d=draft;
   $("#wTitle").oninput=e=>{d.title=e.target.value;refreshCover()};
@@ -405,10 +416,11 @@ function bindWrite(){
     if(t.dataset.cb!=null){d.chapters[+t.dataset.cb].body=t.value;$(`[data-wc="${t.dataset.cb}"]`).textContent=wc(t.value)}});
   $("#chapEdits").addEventListener("click",e=>{const b=e.target.closest("[data-del]");if(!b)return;d.chapters.splice(+b.dataset.del,1);render()});
   $("#addCh")?.addEventListener("click",()=>{d.chapters.push({t:"",body:""});render()});
-  document.querySelectorAll(".designer [data-key]").forEach(g=>g.addEventListener("click",e=>{
-    const b=e.target.closest("[data-v]");if(!b)return;d.cover[g.dataset.key]=b.dataset.v;delete d.cover.ai;
-    g.querySelectorAll("[data-v]").forEach(x=>x.setAttribute("aria-pressed",x===b));refreshCover()}));
-  $("#aiGen").onclick=aiCover;
+  $("#coverPickBtn").onclick=()=>$("#coverFile").click();
+  $("#coverFile").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;const ce=$("#coverErr");ce.hidden=true;
+    try{const r=await prepareCover(f);resetCoverPick(URL.createObjectURL(r.blob));coverPick.blob=r.blob;render();
+      if(!r.ratioOk)toast("Image recadrée au format 2:3")}catch(x){showErr(ce,x.message)}};
+  $("#coverDel")?.addEventListener("click",()=>{resetCoverPick();coverPick.remove=true;render()});
   $("#saveDraft")?.addEventListener("click",()=>{store.set("draft",d);toast("Brouillon gardé sur cet appareil")});
   $("#resetDraft")?.addEventListener("click",()=>{draft=newDraft();store.set("draft",null);render()});
   $("#publish").onclick=async()=>{
@@ -420,33 +432,14 @@ function bindWrite(){
     const payload={title:d.title,summary:d.summary,section:d.section,genre:d.genre,type:d.type,cover:d.cover,chapters:d.chapters.map(c=>({title:c.t,body:c.body}))};
     try{
       const r=editing?await api("PUT","/api/stories/"+editing,payload):await api("POST","/api/stories",payload);
+      if(coverPick.blob){const up=await fetch(`/api/stories/${r.id}/cover`,{method:"PUT",headers:{"Content-Type":"image/jpeg"},body:coverPick.blob,credentials:"same-origin"});
+        if(!up.ok){const j=await up.json().catch(()=>({}));toast("Histoire enregistrée, mais l'image n'a pas pu être envoyée : "+(j.error||"réessaie depuis Modifier"))}}
+      else if(coverPick.remove&&editing)await api("DELETE",`/api/stories/${r.id}/cover`);
+      resetCoverPick();
       if(!editing)store.set("draft",null);
       toast(editing?"Modifications enregistrées":"Ton histoire est publiée !");draft=null;editing=null;reading.id=null;go("histoire-"+r.id);
     }catch(e){btn.disabled=false;btn.textContent=label;fail(e.message)}
   };
-}
-function aiCover(){
-  if(!state.me.premium){premiumModal();return}
-  const prompt=$("#aiPrompt").value.trim()||"mystère";
-  modal(`<h3>L'IA dessine ta couverture…</h3><div class="spin"></div><p class="muted" style="text-align:center;margin:0">« ${esc(prompt)} »</p>`);
-  setTimeout(()=>{
-    const p=prompt.toLowerCase();
-    const moods=[
-      {k:/(forêt|foret|nature|arbre)/,c:{bg:"#1F6E43",bg2:"#0F4C5C",pattern:"gradient",shape:"mountain",shapeColor:"#1D1A33",font:"hand",text:"#EDE6D6"}},
-      {k:/(lune|nuit|étoile|etoile|espace|ciel)/,c:{bg:"#1D1A33",bg2:"#3B1F5C",pattern:"stars",shape:"circle",shapeColor:"#F7D6E0",font:"royal",text:"#F7D6E0"}},
-      {k:/(amour|romance|cœur|coeur)/,c:{bg:"#F7D6E0",bg2:"#D3336A",pattern:"gradient",shape:"heart",shapeColor:"#7A1E3A",font:"script",text:"#7A1E3A"}},
-      {k:/(mer|océan|ocean|île|ile|bateau)/,c:{bg:"#0F4C5C",bg2:"#8FD3E8",pattern:"waves",shape:"mountain",shapeColor:"#1D1A33",font:"typewriter",text:"#FFFFFF"}},
-      {k:/(sang|vampire|rouge|horreur|peur)/,c:{bg:"#1D1A33",bg2:"#7A1E3A",pattern:"gradient",shape:"circle",shapeColor:"#D3336A",font:"royal",text:"#F7D6E0"}},
-      {k:/(drôle|drole|humour|rigolo)/,c:{bg:"#F2C94C",bg2:"#F28C38",pattern:"dots",shape:"none",shapeColor:"#1D1A33",font:"bold",text:"#1D1A33"}}];
-    const m=moods.find(x=>x.k.test(p))||moods[1];
-    draft.cover={...m.c,ai:true};
-    closeModal();render();toast("Couverture générée (simulation)");
-  },1600);
-}
-function premiumModal(){
-  modal(`<div class="eyebrow" style="color:var(--gold)">★ Premium</div><h2>La couverture par IA est en Premium</h2>
-  <p style="margin:0">Générer des images avec une IA coûte de l'argent à chaque fois. C'est pour ça que cette option fait partie de l'abonnement Premium.</p>
-  <div class="row" style="justify-content:flex-end"><button class="btn ghost" data-close>Plus tard</button><a class="btn gold" href="#premium" data-close>Voir le Premium</a></div>`);
 }
 
 /* ---------- Mon espace ---------- */

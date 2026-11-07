@@ -287,6 +287,7 @@ app.delete("/api/me", needUser, wrap(async (req, res) => {
 }));
 /* ----- Histoires ----- */
 const STORY_COLS = `s.id, s.title, s.summary, s.section, s.genre, s.kind AS type, s.cover, s.reads, s.created_at,
+  (SELECT floor(extract(epoch FROM sc.updated_at))::bigint FROM story_covers sc WHERE sc.story_id=s.id) AS cover_v,
   u.pseudo AS author, u.color AS author_color, u.real_name AS author_name,
   (SELECT count(*)::int FROM chapters c WHERE c.story_id=s.id) AS chapter_count,
   (SELECT count(*)::int FROM reviews r WHERE r.story_id=s.id AND NOT r.hidden) AS review_count,
@@ -335,7 +336,7 @@ function cleanCover(c) {
   return {
     bg: hex(c.bg) || "#3B1F5C", bg2: hex(c.bg2) || "#D3336A", shapeColor: hex(c.shapeColor) || "#F2C94C", text: hex(c.text) || "#FFFFFF",
     pattern: pick(c.pattern, ["none", "gradient", "dots", "stripes", "stars", "waves"], "gradient"),
-    shape: pick(c.shape, ["none", "circle", "arch", "diamond", "mountain", "heart"], "circle"),
+    shape: pick(c.shape, ["none", "circle", "arch", "diamond", "mountain", "heart"], "none"),
     font: pick(c.font, ["display", "script", "hand", "royal", "typewriter", "bold"], "display"),
     ai: c.ai === true,
   };
@@ -409,6 +410,32 @@ app.post("/api/stories/:id/chapters", needUser, needEmail, writeLimit, wrap(asyn
   await notifyFollowers(req.user.id, "chapter", req.user.pseudo, id, `a publié un nouveau chapitre de « ${s.rows[0].title} »`);
   res.json({ position: n.rows[0].n });
 }));
+/* ----- Image de couverture ----- */
+// Le navigateur recadre l'image en 2:3 et l'envoie en JPEG (800 × 1200 maximum) : on la garde dans Postgres.
+app.put("/api/stories/:id/cover", needUser, needEmail, writeLimit, express.raw({ type: "image/jpeg", limit: "1500kb" }), wrap(async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const own = await q("SELECT 1 FROM stories WHERE id=$1 AND author_id=$2", [id, req.user.id]);
+  if (!own.rowCount) throw new HttpError(404, "Histoire introuvable.");
+  const buf = req.body;
+  if (!Buffer.isBuffer(buf) || buf.length < 100 || buf[0] !== 0xff || buf[1] !== 0xd8 || buf[2] !== 0xff) bad("Cette image n'a pas pu être lue. Essaie une image JPG ou PNG.");
+  await q(`INSERT INTO story_covers (story_id, data) VALUES ($1,$2)
+    ON CONFLICT (story_id) DO UPDATE SET data=EXCLUDED.data, updated_at=now()`, [id, buf]);
+  res.json({ ok: true });
+}));
+app.delete("/api/stories/:id/cover", needUser, wrap(async (req, res) => {
+  await q("DELETE FROM story_covers WHERE story_id IN (SELECT id FROM stories WHERE id=$1 AND author_id=$2)", [parseInt(req.params.id, 10), req.user.id]);
+  res.json({ ok: true });
+}));
+app.get("/api/covers/:id", wrap(async (req, res) => {
+  const r = await q(`SELECT sc.data, s.section, s.hidden, s.author_id FROM story_covers sc JOIN stories s ON s.id=sc.story_id WHERE sc.story_id=$1`, [parseInt(req.params.id, 10)]);
+  const c = r.rows[0];
+  if (!c || (c.hidden && c.author_id !== req.user?.id)) return res.status(404).end();
+  if (c.section === "adulte" && !isAdult(req.user)) return res.status(403).end();
+  res.set("Content-Type", "image/jpeg");
+  res.set("Cache-Control", c.section === "adulte" ? "private, max-age=86400" : "public, max-age=604800");
+  res.send(c.data);
+}));
+
 app.delete("/api/stories/:id", needUser, wrap(async (req, res) => {
   const r = await q("DELETE FROM stories WHERE id=$1 AND author_id=$2", [parseInt(req.params.id, 10), req.user.id]);
   if (!r.rowCount) throw new HttpError(404, "Histoire introuvable.");

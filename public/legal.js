@@ -23,7 +23,8 @@ faq: `
 <details class="faq"><summary>Comment accéder à la section Adulte ?</summary><p>Il faut avoir déclaré 18 ans ou plus à l'inscription et avoir confirmé ton e-mail. L'année de naissance ne peut pas être modifiée ensuite. Mentir sur son âge entraîne le bannissement.</p></details>
 <details class="faq"><summary>Je ne sais pas dans quelle section publier</summary><p>Relis la partie 3 de <a href="#charte">la charte</a>. En cas de doute, publie en Adulte.</p></details>
 <h2>Écrire et publier</h2>
-<details class="faq"><summary>Comment publier une histoire ?</summary><p>Touche « Écrire » (le + en bas de l'écran sur téléphone). Choisis la section, le genre, histoire courte ou à chapitres, écris ton texte, crée ta couverture, puis publie. Ton brouillon est gardé sur ton appareil en attendant.</p></details>
+<details class="faq"><summary>Comment publier une histoire ?</summary><p>Touche « Écrire » (le + en bas de l'écran sur téléphone). Choisis la section, le genre, histoire courte ou à chapitres, écris ton texte, ajoute une image de couverture si tu veux, puis publie. Ton brouillon est gardé sur ton appareil en attendant.</p></details>
+<details class="faq"><summary>Quelle image mettre en couverture ?</summary><p>Une image en format portrait, comme un livre : rapport 2:3, idéalement 1600 × 2400 pixels (au moins 800 × 1200), en JPG, PNG ou WebP. Si elle n'a pas ce format, elle est recadrée au centre. Utilise une image que tu as faite toi-même ou que tu as le droit d'utiliser, et pas de photo où l'on te reconnaît. Sans image, une couverture simple avec ton titre est créée.</p></details>
 <details class="faq"><summary>Peut-on ajouter des chapitres plus tard ?</summary><p>Oui. Ouvre ton histoire : un bloc « Ajouter un chapitre » apparaît en bas. Tes abonnés reçoivent une notification.</p></details>
 <details class="faq"><summary>Peut-on modifier ou supprimer une histoire ?</summary><p>Oui, à tout moment, avec le lien « Modifier » sur ton histoire. Tu peux aussi la supprimer.</p></details>
 <details class="faq"><summary>Pourquoi mon texte est-il refusé ?</summary><p>Il contient sans doute un mot bloqué par le filtre (en Jeunesse), ou une coordonnée : e-mail, numéro de téléphone, compte de réseau social. Le message d'erreur indique le mot en cause : remplace-le et publie à nouveau.</p></details>
@@ -123,6 +124,7 @@ charte: `
 <h2>4. Tes textes t'appartiennent</h2>
 <ul>
 <li>Publie seulement ce que tu as écrit toi-même. Copier le texte de quelqu'un d'autre (plagiat) est interdit.</li>
+<li>Pour ta couverture, utilise une image que tu as créée ou que tu as le droit d'utiliser. Elle doit respecter les mêmes règles que les textes de sa section, et ne pas montrer de personne reconnaissable sans son accord.</li>
 <li>Tu restes l'auteur de tes histoires. En les publiant, tu autorises seulement Mille Plumes à les afficher sur le site. Tu peux les modifier ou les supprimer quand tu veux.</li>
 </ul>
 
