@@ -21,13 +21,67 @@ charte: `
 <li>Un avis peut être négatif, mais il doit rester constructif : explique ce qui t'a moins plu, sans attaquer l'auteur.</li>
 </ul>
 
-<h2>3. Ce qu'on peut publier</h2>
+<h2>3. Jeunesse ou Adulte&nbsp;: où est la limite&nbsp;?</h2>
+<p>Tous les sujets peuvent être abordés sur Mille Plumes. Ce qui change entre les deux sections, c'est <b>la façon de les raconter</b> : à quel point c'est montré, détaillé, cru.</p>
 <ul>
-<li><b>Section Jeunesse :</b> tout public. Pas de scènes sexuelles, pas de violence très détaillée, pas de gros mots en série. Un filtre bloque automatiquement certains mots.</li>
-<li><b>Section Adulte :</b> réservée aux comptes de 18 ans et plus ayant confirmé leur e-mail. Mentir sur son âge est interdit et entraîne le bannissement du compte. Les thèmes adultes sont permis, mais les contenus pornographiques, l'incitation à la haine ou à la violence, et tout ce qui est illégal restent interdits.</li>
-<li>Aucun contenu, dans aucune section, ne doit sexualiser des mineurs.</li>
-<li>Pas de publicité, pas de liens vers d'autres sites.</li>
+<li><b>Jeunesse</b> : ce qu'on trouverait au rayon jeunesse et ados d'une bibliothèque. Ouverte à tous, à partir de 10 ans.</li>
+<li><b>Adulte</b> : la littérature pour adultes. Réservée aux comptes de 18 ans et plus ayant confirmé leur e-mail. Mentir sur son âge est interdit et entraîne le bannissement du compte.</li>
 </ul>
+<p><b>La règle d'or :</b> si tu hésites, publie en Adulte.</p>
+
+<h3>Amour et sexualité</h3>
+<ul>
+<li><b>Jeunesse :</b> sentiments, premier amour, déclarations, bisous, câlins. Une relation intime peut être sous-entendue, mais jamais décrite (« la porte se referma… » et on passe au lendemain).</li>
+<li><b>Adulte :</b> des scènes intimes entre personnages adultes et consentants peuvent être décrites, si elles font partie de l'histoire. Un texte dont le seul but est d'exciter (pornographie) reste interdit.</li>
+</ul>
+
+<h3>Violence</h3>
+<ul>
+<li><b>Jeunesse :</b> combats, batailles, danger, blessures, mort d'un personnage, guerre. Sans détails sanglants, sans cruauté qui s'attarde.</li>
+<li><b>Adulte :</b> violence réaliste et détaillée possible quand elle sert l'histoire. Jamais pour la glorifier ou la donner en modèle.</li>
+</ul>
+
+<h3>Peur et horreur</h3>
+<ul>
+<li><b>Jeunesse :</b> frissons, fantômes, monstres, suspense, mystère.</li>
+<li><b>Adulte :</b> horreur intense, gore, angoisse psychologique forte.</li>
+</ul>
+
+<h3>Langage</h3>
+<ul>
+<li><b>Jeunesse :</b> un juron léger de temps en temps (« zut », « mince », « bon sang »). Pas de gros mots ni d'insultes : un filtre bloque automatiquement les plus courants.</li>
+<li><b>Adulte :</b> langage cru permis dans les dialogues et la narration.</li>
+</ul>
+
+<h3>Alcool, tabac, drogues</h3>
+<ul>
+<li><b>Jeunesse :</b> ils peuvent exister dans l'histoire (un personnage qui boit, les dangers d'une addiction), mais sans être présentés comme cool ou désirables.</li>
+<li><b>Adulte :</b> la consommation peut être décrite.</li>
+<li><b>Partout :</b> jamais de mode d'emploi (fabriquer, se procurer, consommer).</li>
+</ul>
+
+<h3>Sujets difficiles</h3>
+<p>Harcèlement, deuil, maladie, maltraitance, violences, idées noires, automutilation, troubles alimentaires…</p>
+<ul>
+<li><b>Jeunesse :</b> on a le droit d'en parler, et c'est souvent important de le faire. Avec pudeur, sans scène détaillée, et en ajoutant un avertissement au début du résumé (par exemple « ⚠️ harcèlement, deuil »).</li>
+<li><b>Adulte :</b> ces sujets peuvent être traités plus frontalement, toujours avec un avertissement dans le résumé.</li>
+<li><b>Partout :</b> jamais de description de méthodes (suicide, automutilation, privation de nourriture) et jamais d'encouragement à passer à l'acte.</li>
+</ul>
+
+<h3>Personnages méchants</h3>
+<p>Un méchant peut être raciste, violent ou cruel : c'est un personnage. Mais l'histoire elle-même ne doit pas encourager la haine ou la violence contre des personnes réelles ou des groupes.</p>
+
+<h3>Interdit partout, même en Adulte</h3>
+<ul>
+<li>La pornographie.</li>
+<li>Toute scène sexuelle ou sexualisée impliquant un personnage de moins de 18 ans, même fictif, même « juste suggérée ».</li>
+<li>Présenter une violence sexuelle comme normale, drôle ou désirable.</li>
+<li>L'incitation à la haine, l'apologie du terrorisme ou de crimes.</li>
+<li>Les modes d'emploi dangereux : armes, explosifs, drogues, suicide, automutilation.</li>
+<li>Les histoires qui visent des personnes réelles (camarades, professeurs, voisins…) pour s'en moquer ou leur nuire.</li>
+<li>La publicité et les liens vers d'autres sites.</li>
+</ul>
+<p>Une histoire mal classée peut être masquée par un modérateur. Son auteur peut alors la corriger, ou la republier dans la bonne section.</p>
 
 <h2>4. Tes textes t'appartiennent</h2>
 <ul>
