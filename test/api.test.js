@@ -1,6 +1,7 @@
 // Test de bout en bout de l'API. Usage : DATABASE_URL=... npm test  (base jetable conseillée)
 const assert = require("assert");
 process.env.ADMIN_PSEUDOS = "ModoTest";
+process.env.NO_RATE_LIMIT = "1";
 const { app, init, pool } = require("../server.js");
 
 (async () => {
@@ -44,6 +45,21 @@ const { app, init, pool } = require("../server.js");
   r = await call("ad", "POST", "/api/login", { pseudo: adult, password: "nouveaumdp1" }); assert.equal(r.status, 200);
   r = await call("ad", "POST", "/api/me/password", { currentPassword: "faux", newPassword: "autremdp22" }); assert.equal(r.status, 400);
   r = await call("ad", "POST", "/api/me/password", { currentPassword: "nouveaumdp1", newPassword: "autremdp22" }); assert.equal(r.status, 200);
+  // e-mail de secours
+  const { outbox } = require("../lib/mail");
+  r = await call("ad", "POST", "/api/me/email", { email: "pas-un-mail", currentPassword: "autremdp22" }); assert.equal(r.status, 400);
+  r = await call("ad", "POST", "/api/me/email", { email: "Parent@Exemple.fr", currentPassword: "faux" }); assert.equal(r.status, 400, "mot de passe exigé");
+  r = await call("ad", "POST", "/api/me/email", { email: "Parent@Exemple.fr", currentPassword: "autremdp22" }); assert.equal(r.body.me.email, "p•••@exemple.fr");
+  r = await call("anon", "POST", "/api/recover-email", { pseudo: "PersonneDuTout_" + tag }); assert.equal(r.status, 200, "réponse neutre"); assert.equal(outbox.length, 0);
+  r = await call("anon", "POST", "/api/recover-email", { pseudo: adult.toLowerCase() }); assert.equal(outbox.length, 1); assert.equal(outbox[0].to, "parent@exemple.fr");
+  const token = outbox[0].text.match(/#reinit-([\w-]+)/)[1];
+  r = await call("anon", "POST", "/api/reset", { token: "faux", password: "viamail123" }); assert.equal(r.status, 400);
+  r = await call("anon", "POST", "/api/reset", { token, password: "viamail123" }); assert.equal(r.status, 200); assert.equal(r.body.me.pseudo, adult);
+  r = await call("anon", "POST", "/api/reset", { token, password: "encoreun123" }); assert.equal(r.status, 400, "lien à usage unique");
+  r = await call("ad", "POST", "/api/login", { pseudo: adult, password: "viamail123" }); assert.equal(r.status, 200);
+  r = await call("ad", "POST", "/api/me/password", { currentPassword: "viamail123", newPassword: "autremdp22" }); assert.equal(r.status, 200);
+  r = await call("mailkid", "POST", "/api/signup", { pseudo: "Mail_" + tag, password: "motdepasse9", birthYear: y - 12, parentOk: true, acceptTerms: true, email: "papa@exemple.fr" });
+  assert.equal(r.body.me.email, "p•••@exemple.fr", "e-mail à l'inscription"); await call("mailkid", "DELETE", "/api/me");
   const body = "Il était une fois une histoire de test qui contient largement plus de vingt mots pour passer la règle minimale de longueur imposée par le serveur.";
   r = await call("kid", "POST", "/api/stories", { title: "T", genre: "Humour", type: "courte", section: "adulte", chapters: [{ body }] });
   assert.equal(r.status, 400, "mineur ne publie pas en Adulte");

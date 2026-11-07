@@ -252,41 +252,47 @@ function viewAuthor(a){
 function bindAuthor(a){$("#followBtn")?.addEventListener("click",()=>toggleFollow(a.pseudo))}
 
 /* ---------- Connexion / inscription / code de secours ---------- */
-let authTab="signup";
+let authTab="signup",recoverMode="email";
 const passInput=(id,ac,label)=>`<div class="field"><label for="${id}">${label}</label><input type="password" id="${id}" minlength="8" autocomplete="${ac}" required class="pw"></div>`;
 function viewAuth(){
-  const y=new Date().getFullYear(),T=authTab;
+  const y=new Date().getFullYear(),T=authTab,R=state.mail?recoverMode:"code";
   return`<div class="panel stack" style="max-width:460px;margin:10px auto">
     <div class="tabs" id="authTabs"><button class="opt" data-t="signup" aria-pressed="${T==="signup"}">Créer un compte</button><button class="opt" data-t="login" aria-pressed="${T!=="signup"}">J'ai déjà un compte</button></div>
     <h2>${T==="signup"?"Ton identité d'auteur":T==="login"?"Content de te revoir":"Mot de passe oublié"}</h2>
-    ${T==="signup"?`<p class="muted" style="margin:0">Ici, pas de prénom, pas de nom, pas d'e-mail. Juste un pseudo qui te ressemble.</p>`:""}
-    ${T==="recover"?`<p class="muted" style="margin:0">Utilise le code de secours qu'on t'a donné à l'inscription (il ressemble à ABCD-EFGH-JKLM).</p>`:""}
+    ${T==="signup"?`<p class="muted" style="margin:0">Ici, pas de prénom, pas de nom. Juste un pseudo qui te ressemble.</p>`:""}
+    ${T==="recover"&&state.mail?`<div class="tabs" id="recTabs"><button class="opt" data-m="email" aria-pressed="${R==="email"}">Par e-mail</button><button class="opt" data-m="code" aria-pressed="${R==="code"}">Avec mon code</button></div>`:""}
+    ${T==="recover"&&R==="email"?`<p class="muted" style="margin:0">Si tu as donné un e-mail de secours, on t'y envoie un lien pour choisir un nouveau mot de passe.</p>`:""}
+    ${T==="recover"&&R==="code"?`<p class="muted" style="margin:0">Utilise le code de secours qu'on t'a donné à l'inscription (il ressemble à ABCD-EFGH-JKLM).</p>`:""}
     <form id="authForm" class="stack" novalidate>
       <div class="field"><label for="aPseudo">Pseudo</label><input type="text" id="aPseudo" maxlength="24" autocomplete="username" placeholder="ex. PlumeDeCorbeau" required></div>
       ${T==="signup"?`<div class="row muted" style="font-size:13px">Idées : ${["EncreViolette","RenardDesMots","Nuage_Bleu"].map(x=>`<button type="button" class="btn small" data-idea="${x}">${x}</button>`).join("")}</div>`:""}
-      ${T==="recover"?`<div class="field"><label for="aCode">Code de secours</label><input type="text" id="aCode" maxlength="20" autocomplete="off" placeholder="ABCD-EFGH-JKLM" style="text-transform:uppercase;letter-spacing:.08em"></div>`:""}
-      ${passInput("aPass",T==="login"?"current-password":"new-password",T==="recover"?"Nouveau mot de passe":"Mot de passe")}
+      ${T==="recover"&&R==="code"?`<div class="field"><label for="aCode">Code de secours</label><input type="text" id="aCode" maxlength="20" autocomplete="off" placeholder="ABCD-EFGH-JKLM" style="text-transform:uppercase;letter-spacing:.08em"></div>`:""}
+      ${T==="recover"&&R==="email"?"":passInput("aPass",T==="login"?"current-password":"new-password",T==="recover"?"Nouveau mot de passe":"Mot de passe")}
       ${T==="signup"?`
       <div class="field"><label for="aYear">Année de naissance</label><select id="aYear"><option value="">Choisis</option>${Array.from({length:91},(_,i)=>y-10-i).map(v=>`<option>${v}</option>`).join("")}</select>
         <span class="muted" style="font-size:12px">Elle n'est jamais affichée. Elle sert à te montrer les bonnes sections.</span></div>
+      <div class="field"><label for="aEmail">E-mail de secours <span class="muted">(facultatif, conseillé)</span></label><input type="email" id="aEmail" maxlength="120" autocomplete="email" placeholder="ex. adresse@exemple.fr">
+        <span class="muted" style="font-size:12px">Jamais affiché ni partagé. Il sert seulement si tu oublies ton mot de passe. Moins de 15 ans : mets celui d'un parent.</span></div>
       <label class="check" id="parentRow" hidden><input type="checkbox" id="aParent"> <span>J'ai moins de 15 ans et un parent est d'accord pour que je crée ce compte.</span></label>
       <label class="check"><input type="checkbox" id="aTerms"> <span>J'ai lu et j'accepte <a href="#charte" target="_blank">la charte de Mille Plumes</a> et <a href="#confidentialite" target="_blank">la politique de confidentialité</a>.</span></label>`:""}
       <div id="aErr" class="note" hidden></div>
-      <button class="btn primary" type="submit">${T==="signup"?"Créer mon compte":T==="login"?"Me connecter":"Changer mon mot de passe"}</button>
+      <button class="btn primary" type="submit">${T==="signup"?"Créer mon compte":T==="login"?"Me connecter":R==="email"?"M'envoyer le lien":"Changer mon mot de passe"}</button>
       ${T==="login"?`<button type="button" class="btn ghost small" id="toRecover">Mot de passe oublié ?</button>`:""}
       ${T==="recover"?`<button type="button" class="btn ghost small" id="toLogin">Retour à la connexion</button>`:""}
     </form></div>`;
 }
 function showRecoveryCode(code,next){
   modal(`<div class="eyebrow">À garder précieusement</div><h2>Ton code de secours</h2>
-    <p style="margin:0">Comme il n'y a pas d'e-mail, ce code est le seul moyen de récupérer ton compte si tu oublies ton mot de passe. Note-le sur papier ou fais une capture d'écran.</p>
+    <p style="margin:0">Ce code te permet de récupérer ton compte si tu oublies ton mot de passe${state.me&&state.me.email?" (en plus de ton e-mail de secours)":", et c'est le seul moyen si tu n'as pas mis d'e-mail de secours"}. Télécharge-le, note-le sur papier ou fais une capture d'écran.</p>
     <div class="code-box" id="codeBox">${esc(code)}</div>
-    <div class="row"><button class="btn small" id="copyCode">Copier</button><span class="muted" style="font-size:13px">On ne pourra plus te le montrer.</span></div>
+    <div class="row"><button class="btn small" id="copyCode">Copier</button><button class="btn small" id="dlCode">Télécharger</button><span class="muted" style="font-size:13px">On ne pourra plus te le montrer.</span></div>
     <label class="check"><input type="checkbox" id="codeOk"> <span>J'ai bien noté mon code.</span></label>
     <button class="btn primary" id="codeDone" disabled>Continuer</button>`);
   // on remplace la modale par une copie : elle ne se ferme plus en touchant à côté
   const m=$("#layer .modal");if(m){const c=m.cloneNode(true);m.replaceWith(c);
     $("#copyCode",c).onclick=async()=>{try{await navigator.clipboard.writeText(code);toast("Code copié")}catch(e){const r=document.createRange();r.selectNodeContents($("#codeBox",c));const sel=getSelection();sel.removeAllRanges();sel.addRange(r)}};
+    $("#dlCode",c).onclick=()=>{const t=`Mille Plumes : mon code de secours\n\nPseudo : ${state.me?state.me.pseudo:""}\nCode de secours : ${code}\n\nÀ utiliser dans « Mot de passe oublié ? » sur la page de connexion.\n`;
+      const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/plain"}));a.download="mille-plumes-code-secours.txt";document.body.appendChild(a);a.click();a.remove();toast("Code téléchargé")};
     $("#codeOk",c).onchange=e=>$("#codeDone",c).disabled=!e.target.checked;
     $("#codeDone",c).onclick=()=>{closeModal();next&&next()};}
 }
@@ -294,12 +300,17 @@ function bindAuth(){
   $("#authTabs").onclick=e=>{const b=e.target.closest("[data-t]");if(!b)return;authTab=b.dataset.t;render()};
   $("#toRecover")?.addEventListener("click",()=>{authTab="recover";render()});
   $("#toLogin")?.addEventListener("click",()=>{authTab="login";render()});
+  $("#recTabs")?.addEventListener("click",e=>{const b=e.target.closest("[data-m]");if(!b)return;recoverMode=b.dataset.m;render()});
   document.querySelectorAll("[data-idea]").forEach(b=>b.onclick=()=>$("#aPseudo").value=b.dataset.idea);
   $("#aYear")?.addEventListener("change",e=>{$("#parentRow").hidden=!(e.target.value&&new Date().getFullYear()-e.target.value<15)});
   $("#authForm").onsubmit=async e=>{
     e.preventDefault();const err=$("#aErr");err.hidden=true;
-    const body={pseudo:$("#aPseudo").value.trim(),password:$("#aPass").value},T=authTab;
-    if(T==="signup"){body.birthYear=$("#aYear").value;body.parentOk=$("#aParent").checked;body.acceptTerms=$("#aTerms").checked;
+    const T=authTab,R=state.mail?recoverMode:"code";
+    if(T==="recover"&&R==="email"){const pseudo=$("#aPseudo").value.trim();if(!pseudo)return showErr(err,"Écris ton pseudo.");
+      try{await api("POST","/api/recover-email",{pseudo});err.className="note ok";err.textContent="Si ce pseudo a un e-mail de secours, un lien vient d'y être envoyé (valable 1 heure). Pense à regarder dans les spams.";err.hidden=false}catch(x){showErr(err,x.message)}
+      return}
+    const body={pseudo:$("#aPseudo").value.trim(),password:$("#aPass").value};
+    if(T==="signup"){body.birthYear=$("#aYear").value;body.parentOk=$("#aParent").checked;body.acceptTerms=$("#aTerms").checked;body.email=$("#aEmail").value.trim();
       if(!body.birthYear)return showErr(err,"Choisis ton année de naissance.");
       if(!body.acceptTerms)return showErr(err,"Lis et accepte la charte pour créer ton compte.")}
     if(T==="recover")body.code=$("#aCode").value;
@@ -312,6 +323,12 @@ function bindAuth(){
     }catch(e){showErr(err,e.message)}
   };
 }
+
+/* ---------- Nouveau mot de passe (lien reçu par e-mail) ---------- */
+function viewReinit(){return`<div class="panel stack" style="max-width:460px;margin:10px auto"><h2>Choisis un nouveau mot de passe</h2>
+  <form id="riForm" class="stack" novalidate>${passInput("riPass","new-password","Nouveau mot de passe")}<div id="riErr" class="note" hidden></div><button class="btn primary" type="submit">Enregistrer</button></form></div>`}
+function bindReinit(token){$("#riForm").onsubmit=async e=>{e.preventDefault();
+  try{const r=await api("POST","/api/reset",{token,password:$("#riPass").value});state.me=r.me;updateNav();toast("Mot de passe changé");go("espace")}catch(x){showErr($("#riErr"),x.message)}}}
 
 /* ---------- Atelier d'écriture ---------- */
 let draft=null;
@@ -456,6 +473,11 @@ function viewSpace(sp){
         <div id="pwErr" class="note" hidden></div>
         <div class="row"><button class="btn small primary" id="pwSave">Changer mon mot de passe</button><button class="btn small" id="newCode">Nouveau code de secours</button></div>
         <p class="muted" style="margin:0;font-size:12px">Le nouveau code de secours remplace l'ancien. Il faut ton mot de passe actuel.</p>
+        <div class="field"><label for="emIn">E-mail de secours ${me.email?`<span class="muted">(actuel : ${esc(me.email)})</span>`:""}</label><input type="email" id="emIn" maxlength="120" autocomplete="email" placeholder="${me.email?"Nouvel e-mail, ou laisse vide pour le retirer":"adresse@exemple.fr"}"></div>
+        ${me.email?"":`<div class="note">Sans e-mail de secours, si tu perds ton mot de passe et ton code, ton compte et tes histoires sont perdus.</div>`}
+        <div id="emErr" class="note" hidden></div>
+        <div class="row"><button class="btn small" id="emSave">${me.email?"Changer l'e-mail":"Ajouter cet e-mail"}</button>${me.email?`<button class="btn small ghost" id="emDel">Retirer l'e-mail</button>`:""}</div>
+        <p class="muted" style="margin:0;font-size:12px">Il faut aussi ton mot de passe actuel (champ du haut). L'e-mail n'est jamais affiché.</p>
       </div>
       <div class="panel stack"><h3>Mon compte</h3><p class="muted" style="margin:0;font-size:14px">Supprimer ton compte efface aussi tes histoires, tes avis et ton blog.</p><div><button class="btn small ghost" id="delMe">Supprimer mon compte</button></div>
         <p class="muted" style="margin:0;font-size:12px"><a href="#charte">Charte</a> · <a href="#confidentialite">Confidentialité</a> · <a href="#mentions">Mentions légales</a></p></div>
@@ -469,6 +491,10 @@ function bindSpace(){
     try{await api("POST","/api/posts",{body:v});toast("Annonce publiée");render()}catch(x){showErr(e,x.message)}};
   $("#pwSave").onclick=async()=>{const e=$("#pwErr");e.hidden=true;
     try{await api("POST","/api/me/password",{currentPassword:$("#curPass").value,newPassword:$("#newPass").value});$("#curPass").value=$("#newPass").value="";toast("Mot de passe changé")}catch(x){showErr(e,x.message)}};
+  const saveEmail=async email=>{const e=$("#emErr");e.hidden=true;
+    try{state.me=(await api("POST","/api/me/email",{email,currentPassword:$("#curPass").value})).me;toast(email?"E-mail de secours enregistré":"E-mail de secours retiré");render()}catch(x){showErr(e,x.message)}};
+  $("#emSave").onclick=()=>{const v=$("#emIn").value.trim();if(!v)return showErr($("#emErr"),"Écris une adresse e-mail.");saveEmail(v)};
+  $("#emDel")?.addEventListener("click",()=>saveEmail(""));
   $("#newCode").onclick=async()=>{const e=$("#pwErr");e.hidden=true;
     try{const r=await api("POST","/api/me/recovery-code",{currentPassword:$("#curPass").value});$("#curPass").value="";showRecoveryCode(r.recoveryCode)}catch(x){showErr(e,x.message)}};
   $("#logout").onclick=async()=>{await api("POST","/api/logout").catch(()=>{});state.me=null;updateNav();toast("Tu es déconnecté·e");go("explorer")};
@@ -543,6 +569,7 @@ function route(){
   if(h.startsWith("histoire-"))return["histoire",h.slice(9)];
   if(h.startsWith("auteur-"))return["auteur",h.slice(7)];
   if(h.startsWith("modifier-"))return["modifier",h.slice(9)];
+  if(h.startsWith("reinit-"))return["reinit",h.slice(7)];
   if(["charte","confidentialite","mentions"].includes(h))return["legal",h];
   return[["explorer","ecrire","espace","premium","connexion","moderation","notifications"].includes(h)?h:"explorer"];
 }
@@ -558,6 +585,7 @@ const VIEWS={
   modifier:[loadEdit,()=>viewWrite(),()=>bindWrite(),true],
   notifications:[loadNotifs,viewNotifs,()=>{},true],
   legal:[null,viewLegal,()=>{}],
+  reinit:[null,viewReinit,bindReinit],
 };
 let lastRoute="",renderId=0;
 async function render(){
@@ -565,7 +593,7 @@ async function render(){
   if(r==="connexion"&&state.me){r="espace"}
   if(r!=="modifier"&&editing){editing=null;draft=null}
   const[load,view,bind,needsUser]=VIEWS[r];
-  if(r==="legal"){data=arg}
+  if(r==="legal"||r==="reinit"){data=arg}
   document.querySelectorAll("#mainNav a,#tabBar a").forEach(a=>a.classList.toggle("on",a.dataset.r===r||(r==="connexion"&&a.dataset.r==="espace")));
   const key=r+(arg||"");const changed=key!==lastRoute;lastRoute=key;
   if(needsUser&&!state.me){state.afterLogin=location.hash.slice(1);app.innerHTML=viewAuth();bindAuth();return}
@@ -582,7 +610,7 @@ async function render(){
 window.addEventListener("hashchange",render);
 (async()=>{
   syncSeg();
-  try{state.me=(await api("GET","/api/me")).me}catch(e){}
+  try{const[m,c]=await Promise.all([api("GET","/api/me"),api("GET","/api/config").catch(()=>({}))]);state.me=m.me;state.mail=!!c.mail}catch(e){}
   updateNav();render();
 })();
 })();

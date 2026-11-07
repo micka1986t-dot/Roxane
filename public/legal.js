@@ -53,7 +53,7 @@ charte: `
 confidentialite: `
 <div class="eyebrow">Tes données</div>
 <h1>Politique de confidentialité</h1>
-<p class="lead">Mille Plumes collecte le moins de données possible. Pas d'e-mail, pas de nom, pas de photo, pas de publicité, pas de revente.</p>
+<p class="lead">Mille Plumes collecte le moins de données possible. Pas de nom, pas de photo, pas de publicité, pas de revente. L'e-mail est facultatif.</p>
 
 <h2>Ce qu'on enregistre</h2>
 <ul>
@@ -61,6 +61,7 @@ confidentialite: `
 <li><b>Ton année de naissance</b>, jamais affichée, pour te montrer les bonnes sections. Avant 15 ans, on enregistre aussi qu'un parent a donné son accord.</li>
 <li><b>Ce que tu publies</b> : histoires, avis, annonces de blog, biographie, abonnements et signalements.</li>
 <li><b>Un code de secours</b> (chiffré) pour récupérer ton compte.</li>
+<li><b>Un e-mail de secours</b>, seulement si tu en donnes un. Il n'est jamais affiché ni partagé, et ne sert qu'à t'envoyer un lien si tu oublies ton mot de passe. Tu peux le retirer à tout moment dans Mon espace. Ces e-mails sont envoyés par le service Brevo (France).</li>
 <li><b>Des journaux techniques</b> (adresse IP, date, page demandée), gardés par l'hébergeur pour la sécurité du site.</li>
 </ul>
 

@@ -94,3 +94,12 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS notifications_user ON notifications(user_id, created_at DESC);
+
+-- v0.4 : e-mail de secours facultatif (jamais affiché) et liens de réinitialisation
+ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_email TEXT;
+CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash TEXT PRIMARY KEY,
+  user_id    INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used       BOOLEAN NOT NULL DEFAULT FALSE
+);

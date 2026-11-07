@@ -21,6 +21,7 @@ Plateforme d'écriture et de lecture anonyme, imaginée par Roxane.
 
 ## Variables d'environnement
 `DATABASE_URL`, `SESSION_SECRET`, `ADMIN_PSEUDOS` (pseudos séparés par des virgules), `NODE_ENV=production`.
+Facultatif : `BREVO_API_KEY` et `MAIL_FROM` (adresse expéditrice validée chez Brevo) pour envoyer les liens « mot de passe oublié » à l'e-mail de secours ; `CANONICAL_URL` sur un ancien service pour rediriger vers l'adresse officielle.
 
 ## En local
 ```

@@ -8,6 +8,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 const { findBadWord } = require("./lib/filter");
+const mail = require("./lib/mail");
 
 const PORT = process.env.PORT || 3000;
 const PROD = process.env.NODE_ENV === "production";
@@ -48,6 +49,7 @@ const bad = msg => { throw new HttpError(400, msg); };
 function limiter(max, windowMs) {
   const hits = new Map();
   return (req, res, next) => {
+    if (process.env.NO_RATE_LIMIT && !PROD) return next(); // tests
     const now = Date.now(), key = req.ip;
     const e = hits.get(key) || { n: 0, t: now };
     if (now - e.t > windowMs) { e.n = 0; e.t = now; }
@@ -94,7 +96,8 @@ const needUser = (req, res, next) => req.user ? next() : res.status(401).json({ 
 const needAdmin = (req, res, next) => req.user?.is_admin ? next() : res.status(403).json({ error: "Réservé à la modération." });
 
 const publicMe = (u, extra = {}) => u && ({ id: u.id, pseudo: u.pseudo, bio: u.bio, color: u.color, adult: isAdult(u),
-  adultPending: ageOf(u) >= 18 && !isAdult(u) && u.adult_status === "pending", premium: u.premium, isAdmin: u.is_admin, ...extra });
+  adultPending: ageOf(u) >= 18 && !isAdult(u) && u.adult_status === "pending", premium: u.premium, isAdmin: u.is_admin,
+  email: u.recovery_email ? mail.maskEmail(u.recovery_email) : null, ...extra });
 const unreadCount = async u => (await q("SELECT count(*)::int AS n FROM notifications WHERE user_id=$1 AND NOT read", [u.id])).rows[0].n;
 
 /* ----- Comptes ----- */
@@ -110,15 +113,17 @@ app.post("/api/signup", authLimit, wrap(async (req, res) => {
   if (password.length < 8) bad("Le mot de passe doit faire au moins 8 caractères.");
   if (!(birthYear >= thisYear() - 100 && birthYear <= thisYear() - 10)) bad("Il faut avoir au moins 10 ans pour s'inscrire.");
   const age = thisYear() - birthYear;
+  const email = str(req.body.email, 120).toLowerCase() || null;
+  if (email && !mail.validEmail(email)) bad("Cette adresse e-mail n'a pas l'air valide.");
   if (age < 15 && req.body.parentOk !== true) bad("Avant 15 ans, un parent doit être d'accord. Coche la case avec lui ou elle.");
   const hash = await bcrypt.hash(password, 10);
   const color = COLORS[crypto.randomInt(COLORS.length)];
   const admin = ADMINS.includes(pseudo.toLowerCase());
   const code = newRecoveryCode();
   try {
-    const r = await q(`INSERT INTO users (pseudo,password_hash,birth_year,color,parent_consent,is_admin,recovery_hash,terms_accepted_at,adult_status)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,now(),$8) RETURNING *`,
-      [pseudo, hash, birthYear, color, age < 15, admin, await bcrypt.hash(normCode(code), 10), age >= 18 ? (admin ? "verified" : "pending") : "none"]);
+    const r = await q(`INSERT INTO users (pseudo,password_hash,birth_year,color,parent_consent,is_admin,recovery_hash,terms_accepted_at,adult_status,recovery_email)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,now(),$8,$9) RETURNING *`,
+      [pseudo, hash, birthYear, color, age < 15, admin, await bcrypt.hash(normCode(code), 10), age >= 18 ? (admin ? "verified" : "pending") : "none", email]);
     setSession(res, r.rows[0]);
     res.json({ me: publicMe(r.rows[0], { unread: 0 }), recoveryCode: code });
   } catch (e) {
@@ -158,6 +163,41 @@ app.post("/api/me/recovery-code", needUser, authLimit, wrap(async (req, res) => 
   await q("UPDATE users SET recovery_hash=$1 WHERE id=$2", [await bcrypt.hash(normCode(code), 10), req.user.id]);
   res.json({ recoveryCode: code });
 }));
+// E-mail de secours : ajouter, changer ou retirer (mot de passe demandé)
+app.post("/api/me/email", needUser, authLimit, wrap(async (req, res) => {
+  if (!(await bcrypt.compare(String(req.body.currentPassword || ""), req.user.password_hash))) bad("Ton mot de passe n'est pas le bon.");
+  const email = str(req.body.email, 120).toLowerCase() || null;
+  if (email && !mail.validEmail(email)) bad("Cette adresse e-mail n'a pas l'air valide.");
+  const r = await q("UPDATE users SET recovery_email=$1 WHERE id=$2 RETURNING *", [email, req.user.id]);
+  res.json({ me: publicMe(r.rows[0], { unread: await unreadCount(req.user) }) });
+}));
+// Mot de passe oublié par e-mail : lien valable 1 heure. Réponse identique que l'e-mail existe ou non.
+const sha = t => crypto.createHash("sha256").update(t).digest("hex");
+app.post("/api/recover-email", limiter(5, 15 * 60 * 1000), wrap(async (req, res) => {
+  const r = await q("SELECT * FROM users WHERE lower(pseudo)=lower($1) AND NOT is_demo", [str(req.body.pseudo, 24)]);
+  const u = r.rows[0];
+  if (u && u.recovery_email) {
+    const token = crypto.randomBytes(24).toString("base64url");
+    await q("DELETE FROM password_resets WHERE user_id=$1 OR expires_at < now()", [u.id]);
+    await q("INSERT INTO password_resets (token_hash,user_id,expires_at) VALUES ($1,$2,now() + interval '1 hour')", [sha(token), u.id]);
+    const base = process.env.CANONICAL_URL || process.env.RENDER_EXTERNAL_URL || `${req.protocol}://${req.get("host")}`;
+    try { await mail.sendMail(u.recovery_email, "Mille Plumes : choisir un nouveau mot de passe",
+      `Bonjour ${u.pseudo},\n\nQuelqu'un (sans doute toi) a demandé à changer le mot de passe de ce compte Mille Plumes.\n\nPour choisir un nouveau mot de passe, ouvre ce lien (valable 1 heure) :\n${base}/#reinit-${token}\n\nSi ce n'est pas toi, ignore simplement cet e-mail : rien ne change.\n\nMille Plumes`); }
+    catch (e) { console.error("recover-email", e.message); }
+  }
+  res.json({ ok: true });
+}));
+app.post("/api/reset", authLimit, wrap(async (req, res) => {
+  const password = String(req.body.password || "");
+  const t = await q("SELECT * FROM password_resets WHERE token_hash=$1 AND NOT used AND expires_at > now()", [sha(String(req.body.token || ""))]);
+  if (!t.rows[0]) bad("Ce lien n'est plus valable. Redemande un e-mail.");
+  if (password.length < 8) bad("Le nouveau mot de passe doit faire au moins 8 caractères.");
+  await q("UPDATE password_resets SET used=true WHERE token_hash=$1", [t.rows[0].token_hash]);
+  const up = await q("UPDATE users SET password_hash=$1 WHERE id=$2 RETURNING *", [await bcrypt.hash(password, 10), t.rows[0].user_id]);
+  setSession(res, up.rows[0]);
+  res.json({ me: publicMe(up.rows[0], { unread: await unreadCount(up.rows[0]) }) });
+}));
+app.get("/api/config", (req, res) => res.json({ mail: mail.enabled }));
 app.post("/api/logout", (req, res) => { res.clearCookie(COOKIE); res.json({ ok: true }); });
 app.get("/api/me", wrap(async (req, res) => res.json({ me: req.user ? publicMe(req.user, { unread: await unreadCount(req.user) }) : null })));
 app.patch("/api/me", needUser, wrap(async (req, res) => {
