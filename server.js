@@ -23,7 +23,7 @@ const pool = new Pool({
 const q = (text, params) => pool.query(text, params);
 
 /* ---------- Règles ---------- */
-const GENRES = ["Fantaisie","Fantastique","Romance","Aventure","Humour","Autobiographie","Mystère","Science-fiction","Poésie"];
+const GENRES = ["Fantaisie","Fantastique","Romance","Aventure","Humour","Autobiographie","Mystère","Horreur","Science-fiction","Poésie"];
 const COLORS = ["#1D1A33","#3B1F5C","#0F4C5C","#1F6E43","#7A1E3A","#D3336A","#F28C38"];
 const thisYear = () => new Date().getFullYear();
 const ageOf = u => thisYear() - u.birth_year;
