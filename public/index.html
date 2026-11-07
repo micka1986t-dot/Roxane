@@ -208,6 +208,12 @@ footer .wrap{padding-block:20px;display:flex;flex-wrap:wrap;gap:8px 20px;justify
 .legal{max-width:68ch;margin:0 auto}
 .legal h1{margin:6px 0 14px}
 .legal h2{font-size:21px;margin:26px 0 8px}
+.faq{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:8px 0;padding:0 14px}
+.faq summary{cursor:pointer;font-weight:600;padding:12px 0;list-style:none;display:flex;justify-content:space-between;gap:12px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";color:var(--muted);font-weight:400}
+.faq[open] summary::after{content:"−"}
+.faq p{margin:0 0 14px;color:var(--ink)}
 .legal h3{font-size:17px;margin:18px 0 6px;font-family:var(--f-body)}
 .legal .lead{font-size:17px;color:var(--muted)}
 .legal ul{padding-left:20px;display:flex;flex-direction:column;gap:6px}
@@ -307,7 +313,7 @@ footer .links a{color:inherit}
   </div>
 </header>
 <main class="wrap" id="app"></main>
-<footer><div class="wrap"><span>Écrire et lire des histoires, gratuitement.</span><span class="links"><a href="#charte">Charte</a> · <a href="#confidentialite">Confidentialité</a> · <a href="#mentions">Mentions légales</a></span></div></footer>
+<footer><div class="wrap"><span>Écrire et lire des histoires, gratuitement.</span><span class="links"><a href="#faq">FAQ</a> · <a href="#charte">Charte</a> · <a href="#confidentialite">Confidentialité</a> · <a href="#mentions">Mentions légales</a></span></div></footer>
 <div id="layer"></div>
 <nav class="tabbar" id="tabBar" aria-label="Navigation"><a href="#explorer" data-r="explorer" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6.5A2.5 2.5 0 0 0 4 20.5 2.5 2.5 0 0 0 6.5 23H19v-5"/></svg><span>Explorer</span></a><a href="#espace" data-r="espace" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Mon espace</span></a><a href="#ecrire" data-r="ecrire" class="write"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Écrire</span></a><a href="#premium" data-r="premium" class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg><span>Premium</span></a></nav>
 <script>if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>

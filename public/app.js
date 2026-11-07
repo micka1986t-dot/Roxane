@@ -572,7 +572,7 @@ function route(){
   if(h.startsWith("modifier-"))return["modifier",h.slice(9)];
   if(h.startsWith("reinit-"))return["reinit",h.slice(7)];
   if(h.startsWith("verifier-"))return["verifier",h.slice(9)];
-  if(["charte","confidentialite","mentions"].includes(h))return["legal",h];
+  if(["charte","confidentialite","mentions","faq"].includes(h))return["legal",h];
   return[["explorer","ecrire","espace","premium","connexion","moderation","notifications"].includes(h)?h:"explorer"];
 }
 const VIEWS={

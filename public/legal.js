@@ -1,6 +1,43 @@
 // Textes légaux de Mille Plumes (affichés dans l'appli : #charte, #confidentialite, #mentions).
 // Les passages [À COMPLÉTER] doivent être remplis avant l'ouverture au public.
 window.LEGAL = {
+faq: `
+<div class="eyebrow">Besoin d'aide ?</div>
+<h1>Questions fréquentes</h1>
+<p class="lead">Tout ce qu'il faut savoir pour écrire et lire sur Mille Plumes.</p>
+<h2>Découvrir Mille Plumes</h2>
+<details class="faq"><summary>C'est quoi, Mille Plumes ?</summary><p>Une bibliothèque en ligne gratuite où chacun peut écrire et lire des histoires : romans à chapitres, nouvelles, poèmes, souvenirs… Tous les genres sont permis, de la fantaisie à l'humour.</p></details>
+<details class="faq"><summary>C'est vraiment gratuit ?</summary><p>Oui. Lire, écrire, publier, donner son avis et suivre des auteurs est gratuit, sans publicité. Un Premium facultatif arrivera plus tard pour des bonus comme les couvertures créées par IA.</p></details>
+<details class="faq"><summary>Faut-il un compte pour lire ?</summary><p>Non, la section Jeunesse se lit sans compte. Il faut un compte pour publier, donner un avis, suivre un auteur ou accéder à la section Adulte.</p></details>
+<details class="faq"><summary>Peut-on l'installer comme une appli sur son téléphone ?</summary><p>Oui. Ouvre le site dans ton navigateur, puis : sur iPhone (Safari), touche le bouton Partager puis « Sur l'écran d'accueil » ; sur Android (Chrome), touche le menu ⋮ puis « Installer l'application » ou « Ajouter à l'écran d'accueil ».</p></details>
+<h2>Mon compte</h2>
+<details class="faq"><summary>Pourquoi faut-il un e-mail ?</summary><p>Il sert à confirmer ton compte, à récupérer ton mot de passe si tu l'oublies, et à la modération : un compte banni ne peut pas être recréé avec le même e-mail. Il n'est jamais montré aux lecteurs ni aux autres membres. Avant 15 ans, mets l'e-mail d'un parent.</p></details>
+<details class="faq"><summary>Qui voit mon nom ?</summary><p>Les lecteurs voient ton pseudo. Si tu as 18 ans ou plus, tu peux aussi afficher ton vrai nom dans Mon espace › Mon profil, si tu le souhaites. Avant 18 ans, ce n'est pas possible.</p></details>
+<details class="faq"><summary>Je n'ai pas reçu l'e-mail de confirmation</summary><p>Regarde dans les courriers indésirables (spams). Sinon, va dans Mon espace › Sécurité et touche « Renvoyer le lien de confirmation ». Le lien est valable 3 jours.</p></details>
+<details class="faq"><summary>J'ai oublié mon mot de passe</summary><p>Sur la page de connexion, touche « Mot de passe oublié ? ». Tu peux recevoir un lien par e-mail (valable 1 heure), ou utiliser le code de secours qu'on t'a donné à l'inscription.</p></details>
+<details class="faq"><summary>C'est quoi, le code de secours ?</summary><p>Un code du type ABCD-EFGH-JKLM donné à l'inscription. Il permet de récupérer ton compte si tu n'as plus accès à ton e-mail. Garde-le précieusement (le bouton « Télécharger » l'enregistre dans un fichier). Tu peux en créer un nouveau dans Mon espace › Sécurité.</p></details>
+<details class="faq"><summary>Peut-on changer de pseudo ?</summary><p>Pas pour l'instant : choisis-le bien à l'inscription. Tu peux par contre modifier ta biographie et ton e-mail quand tu veux.</p></details>
+<details class="faq"><summary>Comment supprimer mon compte ?</summary><p>Mon espace › Mon compte › « Supprimer mon compte ». Tout est effacé tout de suite : histoires, avis, blog, abonnements. C'est définitif.</p></details>
+<h2>Jeunesse et Adulte</h2>
+<details class="faq"><summary>Quelle est la différence entre les deux sections ?</summary><p>Tous les sujets peuvent être abordés, mais la section Jeunesse reste tout public (pas de scènes intimes décrites, pas de violence sanglante, pas de gros mots), alors que la section Adulte permet un contenu plus cru. Tout est détaillé dans <a href="#charte">la charte</a>, partie 3.</p></details>
+<details class="faq"><summary>Comment accéder à la section Adulte ?</summary><p>Il faut avoir déclaré 18 ans ou plus à l'inscription et avoir confirmé ton e-mail. L'année de naissance ne peut pas être modifiée ensuite. Mentir sur son âge entraîne le bannissement.</p></details>
+<details class="faq"><summary>Je ne sais pas dans quelle section publier</summary><p>Relis la partie 3 de <a href="#charte">la charte</a>. En cas de doute, publie en Adulte.</p></details>
+<h2>Écrire et publier</h2>
+<details class="faq"><summary>Comment publier une histoire ?</summary><p>Touche « Écrire » (le + en bas de l'écran sur téléphone). Choisis la section, le genre, histoire courte ou à chapitres, écris ton texte, crée ta couverture, puis publie. Ton brouillon est gardé sur ton appareil en attendant.</p></details>
+<details class="faq"><summary>Peut-on ajouter des chapitres plus tard ?</summary><p>Oui. Ouvre ton histoire : un bloc « Ajouter un chapitre » apparaît en bas. Tes abonnés reçoivent une notification.</p></details>
+<details class="faq"><summary>Peut-on modifier ou supprimer une histoire ?</summary><p>Oui, à tout moment, avec le lien « Modifier » sur ton histoire. Tu peux aussi la supprimer.</p></details>
+<details class="faq"><summary>Pourquoi mon texte est-il refusé ?</summary><p>Il contient sans doute un mot bloqué par le filtre (en Jeunesse), ou une coordonnée : e-mail, numéro de téléphone, compte de réseau social. Le message d'erreur indique le mot en cause : remplace-le et publie à nouveau.</p></details>
+<details class="faq"><summary>Mes histoires m'appartiennent-elles ?</summary><p>Oui. Tu restes l'auteur. Mille Plumes a seulement le droit de les afficher sur le site. Publie uniquement ce que tu as écrit toi-même.</p></details>
+<h2>Lire et échanger</h2>
+<details class="faq"><summary>Comment donner mon avis ?</summary><p>Sous chaque histoire, choisis une note de 1 à 5 étoiles et écris une petite critique. Tu peux la publier en anonyme : l'auteur ne verra pas ton pseudo. Un avis peut être négatif, mais doit rester respectueux.</p></details>
+<details class="faq"><summary>À quoi sert « Suivre » ?</summary><p>À être prévenu quand un auteur publie une nouvelle histoire, un nouveau chapitre ou une annonce sur son blog. Les notifications apparaissent sous la cloche en haut de l'écran.</p></details>
+<details class="faq"><summary>C'est quoi, le petit blog ?</summary><p>Chaque auteur a un mini-blog sur sa page pour annoncer une suite, poser une question à ses lecteurs, etc. Tu l'alimentes depuis Mon espace.</p></details>
+<h2>Sécurité</h2>
+<details class="faq"><summary>Quelqu'un me harcèle ou m'a choqué(e)</summary><p>Touche « Signaler » sur l'histoire ou l'avis en cause : un modérateur le regarde. N'hésite pas à en parler à un adulte de confiance. Tu peux aussi appeler le 3018 (harcèlement en ligne), le 119 (enfance en danger) ou le 3114 (idées noires), gratuitement et 24 h/24 pour le 119 et le 3114.</p></details>
+<details class="faq"><summary>Quelqu'un me demande mon numéro, mon adresse ou mes réseaux</summary><p>Ne réponds pas et signale-le. Sur Mille Plumes, personne n'a à te demander ces informations.</p></details>
+<details class="faq"><summary>Que se passe-t-il quand on signale ?</summary><p>Un modérateur vérifie. Si le contenu ne respecte pas la charte, il est masqué. En cas de problème grave ou répété, le compte est banni : ses textes sont retirés et son e-mail ne peut plus servir.</p></details>
+<p class="muted">Ta question n'est pas là ? Écris-nous à l'adresse indiquée dans les <a href="#mentions">mentions légales</a>.</p>`,
+
 charte: `
 <div class="eyebrow">À lire avant de s'inscrire</div>
 <h1>La charte de Mille Plumes</h1>
