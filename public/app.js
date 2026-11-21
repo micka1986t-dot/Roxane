@@ -100,7 +100,7 @@ function viewExplorer(list){
       <p>Des histoires écrites par des gens comme toi, à lire gratuitement. Fantaisie, souvenirs, romance ou n'importe quoi d'autre : ici, c'est toi qui choisis.</p>
       <div class="row"><a class="btn primary" href="#ecrire">Commencer une histoire</a>${list.length?`<a class="btn" href="#histoire-${list[Math.floor(Math.random()*list.length)].id}">Lire au hasard</a>`:""}</div>
     </div>
-    <div class="hero-shelf" aria-hidden="true">${heroBooks.map(coverHTML).join("")}</div>
+    ${heroBooks.length>=3?`<div class="hero-shelf" aria-hidden="true">${heroBooks.map(coverHTML).join("")}</div>`:`<img class="hero-img" src="hero-books.webp" alt="" aria-hidden="true" width="960" height="640">`}
   </section>
   <div class="eyebrow">Genres</div>
   <div class="chips" id="genreChips">${["Tous",...GENRES].map(g=>`<button class="chip" aria-pressed="${state.genre===g}" data-g="${g}">${g}</button>`).join("")}</div>
