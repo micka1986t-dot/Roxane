@@ -148,7 +148,7 @@ function viewStory(s){
     </div>
   </section>
   ${s.type!=="courte"?`<div style="margin-top:28px"><div class="eyebrow" style="margin-bottom:8px">Chapitres</div><div class="chap-list" id="chapList">${s.chapters.map((c,i)=>`<button data-ch="${i}" class="${i===reading.ch?"on":""}"><span>${i+1}. ${esc(c.title)}</span><span class="muted">${Math.max(1,Math.round(c.body.split(/\s+/).length/200))} min</span></button>`).join("")}</div></div>`:""}
-  <section class="reader" id="lecture">
+  <section class="reader${s.mine?"":" nocopy"}" id="lecture">
     <h2>${s.type==="courte"?esc(s.title):`Chapitre ${reading.ch+1} · ${esc(ch.title)}`}</h2>
     <article>${paras(ch.body).map(p=>`<p>${esc(p)}</p>`).join("")}</article>
     ${s.type!=="courte"?`<div class="nav"><button class="btn" id="prevCh" ${reading.ch===0?"disabled":""}>← Précédent</button>${reading.ch<s.chapters.length-1?`<button class="btn primary" id="nextCh">Chapitre suivant →</button>`:`<span class="muted">Fin des chapitres publiés. Suis ${esc(s.author)} pour savoir quand la suite arrive.</span>`}</div>`:""}
@@ -178,6 +178,8 @@ function viewStory(s){
 }
 function markRead(id){try{const k="read_"+id;if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,"1")}catch(e){}api("POST","/api/stories/"+id+"/read").catch(()=>{})}
 function bindStory(s){
+  // Lecteurs : pas de sélection, de copier-couper ni de menu clic droit sur le texte (l'auteur garde ces fonctions)
+  const rd=$("#lecture.nocopy");if(rd)["copy","cut","contextmenu","dragstart","selectstart"].forEach(ev=>rd.addEventListener(ev,e=>e.preventDefault()));
   if(s.adultOnly)return bindAdultGate();
   if(s.error)return;
   const toReader=()=>$("#lecture").scrollIntoView({behavior:"smooth"});

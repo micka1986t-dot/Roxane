@@ -157,6 +157,8 @@ html.noscroll,html.noscroll body{overflow:hidden}
 .reader{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:clamp(20px,5vw,48px);margin-top:26px}
 .reader article{max-width:62ch;margin:0 auto;font-family:var(--f-read);font-size:18px;line-height:1.75}
 .reader article p{margin:0 0 1.1em}
+.reader.nocopy{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+@media print{.reader.nocopy article{display:none}}
 .reader h2{text-align:center;margin-bottom:24px;max-width:62ch;margin-inline:auto}
 .reader .nav{display:flex;justify-content:space-between;max-width:62ch;margin:24px auto 0;gap:10px;flex-wrap:wrap}
 .cols{display:grid;grid-template-columns:1.4fr 1fr;gap:30px;margin-top:34px}
